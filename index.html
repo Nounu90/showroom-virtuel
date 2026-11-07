@@ -1,0 +1,1132 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Showroom virtuel | MSTORECASA</title>
+<meta name="description" content="Découvrez nos stores enrouleurs dans le showroom virtuel MSTORECASA : tirez la chaînette, voyez combien de soleil le store filtre, changez la couleur, voyez le tissu de près.">
+<style>
+#mst-sr{--red:#D5001F;--ink:#1d1d1f;--mute:#5d5d62;--bd:#DBD5CE;--wa:#25D366;
+  position:fixed;inset:0;overflow:hidden;background:var(--bd);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Arabic",sans-serif;line-height:1.45;
+  -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#mst-sr *{box-sizing:border-box}
+#mst-sr[dir=rtl]{font-family:"Noto Sans Arabic","Segoe UI",Tahoma,system-ui,sans-serif}
+html,body{margin:0;height:100%;background:#DBD5CE}
+
+#srCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* showroom hotspots */
+#srHots{position:absolute;inset:0;pointer-events:none;z-index:5}
+#mst-sr:not(.v-room) #srHots{display:none}
+.sr-hot{position:absolute;border:0;padding:0;background:transparent;cursor:pointer;border-radius:4px;outline:none;pointer-events:auto}
+.sr-hot::after{content:"";position:absolute;inset:0;border-radius:4px;box-shadow:inset 0 0 0 2px rgba(255,255,255,0);transition:box-shadow .25s,background .25s}
+.sr-hot:hover::after,.sr-hot:focus-visible::after{box-shadow:inset 0 0 0 2px rgba(255,255,255,.9);background:rgba(255,255,255,.08)}
+.sr-dot{position:absolute;left:50%;top:44%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.sr-dot::before{content:"";position:absolute;inset:-8px;border-radius:50%;border:2px solid #fff;animation:srPulse 1.8s infinite}
+.sr-hot.soon .sr-dot{background:rgba(255,255,255,.75)}
+.sr-hot.soon .sr-dot::before{animation:none;opacity:0}
+.sr-hot.busy .sr-dot{background:var(--red)}
+@keyframes srPulse{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.7);opacity:0}}
+.sr-chip{position:absolute;left:50%;top:44%;transform:translate(-50%,22px);white-space:nowrap;background:rgba(255,255,255,.94);color:var(--ink);
+  font-size:13px;font-weight:700;padding:6px 12px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.14)}
+.o-p .sr-hot.first .sr-chip{left:2px;transform:translate(0,22px)}
+.o-p .sr-hot.last .sr-chip{left:auto;right:2px;transform:translate(0,22px)}
+.sr-chip small{font-weight:600;color:var(--red);margin-inline-start:6px}
+
+/* top bar */
+.sr-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:max(12px,env(safe-area-inset-top)) 16px 12px;z-index:30;pointer-events:none}
+.sr-top>*{pointer-events:auto}
+.sr-brand{color:inherit;text-decoration:none;font-weight:800;letter-spacing:.04em;font-size:15px;background:rgba(255,255,255,.88);padding:7px 12px;border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.08);white-space:nowrap}
+.sr-brand b{color:var(--red)}
+.sr-brand span{font-weight:600;letter-spacing:0;color:var(--mute);margin-inline-start:6px}
+@media (max-width:420px){.sr-brand span{display:none}}
+.sr-sp{flex:1}
+.sr-btn{border:0;cursor:pointer;font:inherit;font-weight:700;border-radius:999px;background:rgba(255,255,255,.92);color:var(--ink);padding:8px 14px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+.sr-close{width:42px;height:42px;padding:0;font-size:20px;line-height:42px;display:none}
+#mst-sr.v-product .sr-close,#mst-sr.v-fabric .sr-close{display:block}
+.sr-hint{position:absolute;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;background:rgba(29,29,31,.82);color:#fff;
+  padding:9px 16px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap;transition:opacity .3s}
+#mst-sr:not(.v-room) .sr-hint{opacity:0;pointer-events:none}
+.sr-toast{position:absolute;left:50%;top:70px;transform:translate(-50%,-10px);z-index:40;background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;transition:.3s;pointer-events:none;max-width:90vw;text-align:center}
+.sr-toast.on{opacity:1;transform:translate(-50%,0)}
+.sr-loader{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;border:4px solid rgba(255,255,255,.5);border-top-color:var(--red);animation:srSpin .8s linear infinite;z-index:25;display:none}
+#mst-sr.loading .sr-loader{display:block}
+@keyframes srSpin{to{transform:rotate(360deg)}}
+
+/* chain controls (positioned from the canvas camera) */
+.sr-chainhit{position:absolute;z-index:11;cursor:grab;touch-action:none;display:none}
+.sr-chainhit:active{cursor:grabbing}
+#mst-sr.v-product.settled .sr-chainhit{display:block}
+.sr-handle{position:absolute;z-index:12;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:var(--red);
+  box-shadow:0 0 0 4px rgba(255,255,255,.95),0 6px 18px rgba(0,0,0,.3);pointer-events:none;display:none;align-items:center;justify-content:center}
+.sr-handle svg{width:22px;height:22px;fill:#fff}
+.sr-handle::after{content:"";position:absolute;inset:-12px;border-radius:50%;border:3px solid var(--red);animation:srPulse 1.5s infinite}
+.sr-handle.used::after{animation-duration:3s;opacity:.5}
+.sr-pull{position:absolute;z-index:12;display:none;align-items:center;gap:8px;background:var(--red);color:#fff;font-weight:800;font-size:17px;line-height:1.2;
+  padding:11px 18px;border-radius:999px;box-shadow:0 0 0 3px rgba(255,255,255,.9),0 10px 26px rgba(213,0,31,.35);white-space:nowrap;pointer-events:none;
+  transform:translateY(-50%)}
+.sr-pull i{font-style:normal;display:inline-block;animation:srBob 1.1s ease-in-out infinite}
+@keyframes srBob{0%,100%{transform:translateY(-3px)}50%{transform:translateY(3px)}}
+.sr-pull.used{font-size:14px;padding:8px 14px;opacity:.92}
+#mst-sr.v-product.settled .sr-handle,#mst-sr.v-product.settled .sr-pull{display:flex}
+@media (max-width:600px){.sr-pull{font-size:15px;padding:9px 14px}}
+
+/* "touch the fabric" badge, sits on the fabric itself */
+.sr-fabtip{position:absolute;z-index:11;display:none;align-items:center;gap:9px;transform:translate(-50%,-50%);border:0;cursor:zoom-in;font:inherit;
+  background:rgba(255,255,255,.94);color:var(--ink);font-weight:800;font-size:15px;line-height:1.2;padding:7px 16px 7px 7px;border-radius:999px;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);white-space:nowrap;opacity:0;transition:opacity .4s}
+.sr-fabtip b{width:34px;height:34px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;flex:none;animation:srZoomI 1.6s ease-in-out infinite}
+.sr-fabtip svg{width:20px;height:20px;fill:#fff}
+.sr-fabtip::after{content:"";position:absolute;inset:-6px;border-radius:999px;border:2px solid rgba(255,255,255,.9);animation:srRing 1.8s ease-out infinite;pointer-events:none}
+@keyframes srZoomI{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}
+@keyframes srRing{0%{transform:scale(.96);opacity:1}100%{transform:scale(1.12);opacity:0}}
+#mst-sr.v-product.settled.tipon .sr-fabtip{display:flex}
+#mst-sr.v-product.settled.tipon .sr-fabtip.vis{opacity:1}
+@media (max-width:600px){.sr-fabtip{font-size:13px;padding:5px 12px 5px 5px;gap:7px}.sr-fabtip b{width:28px;height:28px}.sr-fabtip svg{width:17px;height:17px}}
+
+/* panel */
+.sr-panel{position:absolute;z-index:20;background:rgba(255,255,255,.95);border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.14);padding:20px;
+  opacity:0;pointer-events:none;transition:opacity .45s,transform .6s cubic-bezier(.2,.8,.2,1);user-select:text;-webkit-user-select:text}
+#mst-sr.v-product.settled .sr-panel{opacity:1;pointer-events:auto}
+.o-l .sr-panel{right:4vw;top:50%;width:min(400px,34vw);max-height:88vh;overflow:auto;transform:translate(30px,-50%)}
+#mst-sr.o-l.v-product.settled .sr-panel{transform:translate(0,-50%)}
+.o-p .sr-panel{left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));max-height:46vh;overflow:auto;transform:translateY(40px);padding:14px 16px}
+#mst-sr.o-p.v-product.settled .sr-panel{transform:none}
+.sr-kick{font-size:12px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.08em}
+.sr-panel h1{margin:2px 0 2px;font-size:30px;line-height:1.1}
+.sr-tag{font-weight:700;margin:0 0 8px}
+.sr-desc{color:var(--mute);font-size:14px;margin:0 0 12px}
+.sr-row{display:flex;align-items:center;gap:12px;margin:10px 0 6px;flex-wrap:wrap}
+.sr-lbl{font-size:13px;font-weight:700;color:var(--mute)}
+.sr-sw{display:flex;flex-wrap:wrap;gap:8px}
+.sr-sw button{width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #ccc;cursor:pointer;padding:0}
+.sr-sw button.on{box-shadow:0 0 0 2px var(--ink)}
+.sr-sw button.wait{opacity:.55;cursor:progress}
+.sr-ud{display:flex;gap:8px;margin:8px 0 2px}
+.sr-ud button{flex:1;border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:14px;padding:11px 10px;font:inherit;font-size:15px;font-weight:800;cursor:pointer;
+  touch-action:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;transition:background .15s,color .15s,transform .1s}
+.sr-ud button.down{background:var(--ink);color:#fff;transform:scale(.97)}
+.sr-holdhint{font-size:12px;color:var(--mute);margin:2px 0 12px;text-align:center}
+.sr-ud.sr-jn{display:none}
+.p-jn .sr-ud.sr-jn{display:flex}
+.sr-jn button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sr-feat{list-style:none;margin:0 0 14px;padding:0;font-size:14px}
+.sr-feat li{position:relative;padding-inline-start:22px;margin:6px 0}
+.sr-feat li::before{content:"";position:absolute;inset-inline-start:2px;top:.45em;width:10px;height:6px;border-left:2px solid var(--red);border-bottom:2px solid var(--red);transform:rotate(-45deg)}
+.sr-fabhint{font-size:13px;color:var(--mute);margin:0 0 12px;cursor:pointer;text-decoration:underline dotted}
+.sr-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:0;border-radius:14px;background:var(--wa);color:#fff;font:inherit;font-weight:800;font-size:16px;padding:14px;text-decoration:none;cursor:pointer}
+.sr-cta svg{width:22px;height:22px;fill:#fff}
+.sr-cta2{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:10px;border:0;border-radius:14px;background:var(--red);color:#fff;
+  font-weight:800;font-size:16px;padding:12px 14px;text-decoration:none;box-shadow:0 4px 14px rgba(227,6,19,.25);transition:background .15s}
+.sr-cta2 svg{width:22px;height:22px;flex:none;fill:currentColor}
+.sr-cta2:hover{background:#c00510}
+/* quote form (opens in place of the WhatsApp button) */
+.sr-q{display:none;margin:0 0 4px}
+.sr-panel.quote .sr-q{display:block;animation:srQin .35s ease-out}
+.sr-panel.quote #srQuoteBtn{display:none}
+@keyframes srQin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.sr-qh{font-weight:800;font-size:15px;margin:2px 0 10px}
+.sr-qbox{display:flex;align-items:center;gap:10px;border:2px solid var(--red);background:#fff5f6;border-radius:16px;padding:10px 10px 10px 12px;margin-bottom:12px}
+.sr-qico{width:38px;height:38px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.sr-qico svg{width:20px;height:20px;fill:none;stroke:var(--red);stroke-width:2.2}
+.sr-qt{flex:1;min-width:0}
+.sr-qt b{display:block;font-size:15px;line-height:1.2}
+.sr-qt b i{color:var(--red);font-style:normal}
+.sr-qt small{color:var(--mute);font-size:12px}
+.sr-step{display:flex;align-items:center;gap:4px;background:#fff;border:1px solid #f0d4d7;border-radius:12px;padding:4px;flex:none}
+.sr-step button{width:38px;height:38px;border:0;border-radius:9px;font:inherit;font-size:22px;font-weight:700;cursor:pointer;line-height:1}
+.sr-step .mn{background:#efeeec;color:var(--ink)}
+.sr-step .pl{background:var(--red);color:#fff}
+.sr-step output{min-width:34px;text-align:center;font-size:22px;font-weight:800}
+.sr-qlbl{display:block;font-size:13px;font-weight:700;color:var(--red);margin:0 0 6px}
+.sr-qlbl i{font-style:normal}
+.sr-sel{width:100%;appearance:none;-webkit-appearance:none;font:inherit;font-size:15px;color:var(--ink);background:#f7f5f1 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23888'/%3E%3C/svg%3E") no-repeat right 14px center;
+  border:1px solid #e6e2da;border-radius:12px;padding:12px 34px 12px 14px;margin:0 0 12px;cursor:pointer}
+[dir=rtl] .sr-sel{background-position:left 14px center;padding:12px 14px 12px 34px}
+.sr-sel.err{border-color:var(--red);box-shadow:0 0 0 3px rgba(227,6,19,.15)}
+.sr-qerr{display:none;color:var(--red);font-size:13px;font-weight:700;margin:-6px 0 10px}
+.sr-qerr.on{display:block}
+.sr-qsafe{text-align:center;font-size:12px;color:var(--mute);margin:8px 0 0}
+.sr-more{display:none;border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--red);padding:0;margin:0 0 10px;cursor:pointer}
+.o-p .sr-desc,.o-p .sr-feat,.o-p .sr-fabhint{display:none}
+.o-p .sr-panel.open .sr-desc,.o-p .sr-panel.open .sr-feat,.o-p .sr-panel.open .sr-fabhint{display:block}
+.o-p .sr-more{display:block}
+.o-p .sr-panel h1{font-size:22px;display:inline}
+.o-p .sr-kick{display:none}
+.o-p .sr-tag{display:inline;margin-inline-start:8px;font-size:14px;color:var(--mute)}
+.o-p .sr-row{margin:8px 0 4px}
+.o-p .sr-ud button{padding:10px 8px}
+.o-p .sr-holdhint{margin:2px 0 8px}
+.o-p .sr-cta{padding:12px}
+.o-p .sr-cta2{margin-top:8px;font-size:15px;padding:11px 12px}
+/* short phones (small screens, browser bars): a tighter panel so the blind keeps a good size above it */
+@media (max-height:720px){
+  .o-p .sr-panel{padding:10px 14px;border-radius:16px}
+  .o-p .sr-holdhint{display:none}
+  .o-p .sr-row{margin:4px 0 2px}
+  .o-p .sr-ud button{padding:8px 8px}
+  .o-p .sr-cta{padding:9px;margin-top:6px}
+  .o-p .sr-cta2{margin-top:6px;padding:9px 12px}
+  .o-p .sr-more{margin:4px 0}
+}
+/* tablets held upright: a centred panel, not a full-width bar */
+@media (min-width:600px){
+  .o-p .sr-panel,.o-p .sr-fcard{left:50%;right:auto;width:min(560px,calc(100vw - 20px));margin-left:calc(min(560px,100vw - 20px) / -2)}
+}
+/* narrow phones: both buttons on one line */
+@media (max-width:420px){
+  .o-p .sr-cta{font-size:14px;gap:6px;white-space:nowrap}
+  .o-p .sr-cta2{font-size:14px;white-space:nowrap}
+  .o-p .sr-cta svg{width:18px;height:18px;flex:none}
+}
+/* phones held sideways: short screen, panel scrolls on the right */
+@media (max-height:500px){
+  .o-l .sr-panel{padding:12px 14px;max-height:calc(100vh - 70px);top:60px;transform:translate(30px,0)}
+  #mst-sr.o-l.v-product.settled .sr-panel{transform:none}
+  .o-l .sr-desc,.o-l .sr-feat{font-size:13px}
+  .o-l .sr-panel h1{font-size:22px}
+}
+
+/* fabric macro */
+.sr-macro{position:absolute;inset:0;z-index:15;opacity:0;pointer-events:none;transition:opacity .5s;overflow:hidden;background:#111}
+#mst-sr.v-fabric .sr-macro{opacity:1;pointer-events:auto}
+.sr-macro img{position:absolute;inset:-2%;width:104%;height:104%;object-fit:cover;transform:scale(1.25)}
+#mst-sr.v-fabric .sr-macro img{animation:srKen 14s ease-out forwards}
+@keyframes srKen{from{transform:scale(1.25)}to{transform:scale(1.02)}}
+.sr-fcard{position:absolute;z-index:16;background:rgba(255,255,255,.95);border-radius:18px;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.25);opacity:0;transform:translateY(20px);transition:.5s .25s;pointer-events:none;user-select:text}
+#mst-sr.v-fabric .sr-fcard{opacity:1;transform:none;pointer-events:auto}
+.o-l .sr-fcard{left:5vw;bottom:7vh;width:min(420px,40vw)}
+.o-p .sr-fcard{left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom))}
+.sr-fcard h2{margin:0 0 6px;font-size:22px}
+.sr-fcard p{margin:0 0 10px;color:var(--mute);font-size:14px}
+.sr-fcard dl{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;margin:0;font-size:14px}
+.sr-fcard dt{color:var(--mute)}
+.sr-fcard dd{margin:0;font-weight:700}
+.sr-back{margin-top:12px;background:var(--red)!important;color:#fff!important;padding:11px 18px;font-size:15px;box-shadow:0 4px 14px rgba(227,6,19,.25)!important}
+</style>
+</head>
+<body>
+<div id="mst-sr" class="v-room">
+  <canvas id="srCanvas" aria-label="Showroom MSTORECASA : stores Screen, Blackout et Jour & Nuit"></canvas>
+  <div id="srHots"></div>
+
+  <div class="sr-chainhit" id="srChain" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"></div>
+  <div class="sr-handle" id="srHandle"><svg viewBox="0 0 24 24"><path d="M12 2l5 6h-3.5v8H17l-5 6-5-6h3.5V8H7z"/></svg></div>
+  <button class="sr-fabtip" id="srFabTip"><b><svg viewBox="0 0 24 24"><path d="M10 3a7 7 0 0 1 5.6 11.2l5 5-1.4 1.4-5-5A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-1 2h2v2h2v2h-2v2H9v-2H7V9h2z"/></svg></b><span data-t="fab_tip"></span></button>
+  <div class="sr-pull" id="srPull"><span data-t="chain_hint"></span><i>↕</i></div>
+
+  <div class="sr-top">
+    <button class="sr-btn sr-close" id="srClose" aria-label="Fermer">✕</button>
+    <a class="sr-brand" href="https://www.mstorecasa.com/" target="_top">MSTORE<b>CASA</b><span data-t="brand"></span></a>
+    <div class="sr-sp"></div>
+    <button class="sr-btn" id="srLang">عربي</button>
+  </div>
+
+  <div class="sr-hint" data-t="hint_room"></div>
+  <div class="sr-loader"></div>
+  <div class="sr-toast" id="srToast"></div>
+
+  <aside class="sr-panel" id="srPanel">
+    <div class="sr-kick" data-t="p_kicker"></div>
+    <h1 data-t="p_title"></h1>
+    <p class="sr-tag" data-t="p_tag"></p>
+    <p class="sr-desc" data-t="p_desc"></p>
+    <div class="sr-row">
+      <span class="sr-lbl" data-t="color"></span>
+      <div class="sr-sw" id="srSw"></div>
+    </div>
+    <div class="sr-ud sr-jn"><button id="srDay" data-t="day"></button><button id="srNight" data-t="night"></button></div>
+    <div class="sr-ud"><button id="srUp" data-t="open"></button><button id="srDown" data-t="close"></button></div>
+    <div class="sr-holdhint" data-t="hold"></div>
+    <button class="sr-more" id="srMore" data-t="more"></button>
+    <ul class="sr-feat" id="srFeat"></ul>
+    <p class="sr-fabhint" id="srFabHint" data-t="fabric_hint"></p>
+    <button class="sr-cta" id="srQuoteBtn" type="button"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.2c0-.2-.2-.2-.5-.4z"/></svg><span data-t="cta"></span></button>
+    <div class="sr-q" id="srQ">
+      <div class="sr-qh" data-t="q_head"></div>
+      <div class="sr-qbox">
+        <span class="sr-qico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h18"/></svg></span>
+        <span class="sr-qt"><b><span data-t="q_win"></span> <i>*</i></b><small data-t="q_win_s"></small></span>
+        <span class="sr-step"><button class="mn" id="srWinMinus" type="button" aria-label="-">−</button><output id="srWin">1</output><button class="pl" id="srWinPlus" type="button" aria-label="+">+</button></span>
+      </div>
+      <label class="sr-qlbl" for="srCity"><span data-t="q_city"></span> <i>*</i></label>
+      <select class="sr-sel" id="srCity"></select>
+      <div class="sr-qerr" id="srCityErr" data-t="q_city_err"></div>
+      <a class="sr-cta" id="srWa" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.2c0-.2-.2-.2-.5-.4z"/></svg><span data-t="q_send"></span></a>
+      <p class="sr-qsafe" data-t="q_safe"></p>
+    </div>
+    <a class="sr-cta2" href="https://www.mstorecasa.com/essayer-votre-store/" target="_top"><svg viewBox="0 0 24 24"><path d="M4 4h7v2H6v12h12v-5h2v7H4zm9 0h7v7h-2V7.4l-6.3 6.3-1.4-1.4L16.6 6H13z"/></svg><span data-t="cta2"></span></a>
+  </aside>
+
+  <div class="sr-macro" id="srMacro"><img id="srMacroImg" alt=""></div>
+  <div class="sr-fcard">
+    <h2 data-t="f_title"></h2>
+    <p data-t="f_desc"></p>
+    <dl id="srSpecs"></dl>
+    <button class="sr-btn sr-back" id="srFabBack" data-t="f_back"></button>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var BASE = 'assets/';
+var WA_NUMBER = '212684659640';
+/* nuancier (same as /essayer-votre-store/): name in the stock sheet, swatch, FR / AR.
+   Every colour has its own layers in assets/ (built by Assets/Showroom virtuel sources/colors.py). */
+var COLORS = [
+  {id:'blanc',        stock:'Blanc',        hex:'#eeece7', fr:'Blanc',        ar:'أبيض'},
+  {id:'blanc-casse',  stock:'Blanc cassé',  hex:'#f1ece1', fr:'Blanc cassé',  ar:'أبيض مكسور'},
+  {id:'creme',        stock:'Crème',        hex:'#ede3cc', fr:'Crème',        ar:'كريمي'},
+  {id:'beige-clair',  stock:'Beige clair',  hex:'#e6dac4', fr:'Beige clair',  ar:'بيج فاتح'},
+  {id:'beige',        stock:'Beige',        hex:'#C9B8A0', fr:'Beige',        ar:'بيج'},
+  {id:'beige-fonce',  stock:'Beige foncé',  hex:'#a88e6d', fr:'Beige foncé',  ar:'بيج غامق'},
+  {id:'gold',         stock:'Gold',         hex:'#b8954a', fr:'Gold',         ar:'ذهبي'},
+  {id:'gris-clair',   stock:'Gris clair',   hex:'#c4c4c0', fr:'Gris clair',   ar:'رمادي فاتح'},
+  {id:'gris',         stock:'Gris',         hex:'#9a9894', fr:'Gris',         ar:'رمادي'},
+  {id:'gris-fonce',   stock:'Gris foncé',   hex:'#5b5d60', fr:'Gris foncé',   ar:'رمادي غامق'},
+  {id:'bleu',         stock:'Bleu',         hex:'#3b5a7a', fr:'Bleu',         ar:'أزرق'},
+  {id:'grenat',       stock:'Grenat',       hex:'#6e1f2b', fr:'Grenat',       ar:'عنابي'},
+  {id:'marron',       stock:'Marron',       hex:'#7a5338', fr:'Marron',       ar:'بني'},
+  {id:'marron-fonce', stock:'Marron foncé', hex:'#4a3427', fr:'Marron foncé', ar:'بني غامق'},
+  {id:'noir',         stock:'Noir',         hex:'#3a3735', fr:'Noir',         ar:'أسود'}
+];
+COLORS.forEach(function(c){ c.macro='fabric-'+c.id+'.jpg'; });
+/* colours offered = Screen fabrics in stock (at least 3 m), read on every visit from the quote-form Google script
+   (action "tissus": colour names only, never prices or quantities) - the same source as /essayer-votre-store/ */
+var STOCK_URL='https://script.google.com/macros/s/AKfycbwCKMhNti35hXKh80Z9z6QyQ1oTME4boVtjfRqzL3isytLTPSPuAAk33ctM5BUz1bB2/exec?action=tissus';
+var STOCKS={   /* stock of 07/11/2026, used until / if the script does not answer */
+  screen:['Noir','Beige','Marron foncé','Gris','Gris foncé','Beige foncé','Beige clair','Gris clair','Blanc'],
+  blackout:['Noir','Gris','Crème','Bleu','Blanc cassé'],
+  jn:['Blanc','Beige','Gold','Gris','Grenat','Marron','Marron foncé']
+};
+var colorKey=function(n){ return String(n).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); };
+var SHOWN=[];
+function setStock(){
+  var keys=(STOCKS[prod]||[]).map(colorKey);
+  SHOWN=COLORS.filter(function(c){ return keys.indexOf(colorKey(c.stock))>=0; });
+  if(!SHOWN.length) SHOWN=COLORS.filter(function(c){ return c.id==='beige'||c.id==='noir'; });
+}
+
+/* showroom photos (l = 16:9 desktop, p = 9:16 phone) and hotspots in % of the photo */
+var ROOM = { l:{src:'showroom-169.jpg', W:1376, H:768}, p:{src:'showroom-916.jpg', W:768, H:1376} };
+var HOTS = {
+  l: [{id:'screen',x:9.2,y:16.7,w:21.2,h:56.2,on:1},{id:'blackout',x:39.5,y:16.7,w:20.7,h:56.2,on:1},{id:'jn',x:69.0,y:16.7,w:21.7,h:55.5,on:1}],
+  p: [{id:'screen',x:1.0,y:36.7,w:25.3,h:22.2,on:1},{id:'blackout',x:37.4,y:36.7,w:24.8,h:22.2,on:1},{id:'jn',x:73.2,y:36.7,w:25.2,h:22.2,on:1}]
+};
+/* product close-up: 4 aligned photos per orientation (blind up / fully down, per colour).
+   fab = fabric rect when fully down, sunY = sun patch rows on the floor, chain = our drawn bead chain,
+   focus = what must stay visible, PR = where the close-up sits inside the showroom photo (for the zoom) */
+var PROD = {
+  l:{pre:'prod-169-', W:1376, H:768, fab:[163,106,757,558], sunY:[640,736], chain:{x1:755.5,x2:758.5,top:110,bot:480}, roll:{x:147,y:86,body:[97,114],cap:[754,95,762,119],b:[162,119,596,8]}, jsun:[215,632], cas:[157,74,763,112],
+     focus:[95,50,1000,752], core:[140,78,790,576], PR:[76.15,206.9,588.0,328.2]},
+  p:{pre:'prod-916-', W:768, H:1376, fab:[66,380,653,859], sunY:[937,1030], chain:{x1:650.5,x2:653.5,top:384,bot:782}, roll:{x:53,y:360,body:[371,391],cap:[648,367,657,406],b:[65,406,589,8]}, jsun:[126,930], cas:[60,348,659,386],
+     focus:[10,340,758,1060], core:[44,350,702,876], PR:[1.40,482.4,220.4,394.9]}
+};
+/* products sharing the same close-up (same window, same roller): d = prefix of the blind-down layer,
+   mac = macro image prefix, def = first colour (blackout: grey, like the blind in the showroom photo),
+   PR = where the close-up sits in the showroom photo (the zoom flies into that window),
+   rollGain = the fabric under the roll is sampled in the closed (dark) room, brought back to room light */
+var PRODS={
+  screen:  {d:'',    mac:'fabric-',    def:'beige', rollGain:1,   PR:{l:PROD.l.PR, p:PROD.p.PR}},
+  blackout:{d:'bo-', mac:'fabric-bo-', def:'gris',  rollGain:3.2, rollTex:1, PR:{l:[489.65,206.9,588.0,328.2], p:[279.1,482.4,220.4,394.9]}},
+  /* jour et nuit: zebra = bands slid live (renderZebra), rollMix = the wound cloth is part voile (white) */
+  jn:      {d:'jn-', mac:'fabric-jn-', def:'marron-fonce', hex:{gold:'#ccc19b', grenat:'#402126'},   /* user's colours 07/11, same in jn.py */
+            rollGain:1, zebra:1, rollMix:0.2, PR:{l:[903.15,206.9,588.0,328.2], p:[555.6,482.4,220.4,394.9]}}
+};
+var prod='screen', lastCol={};
+setStock();
+
+var T = {
+ fr:{brand:'Showroom virtuel',hint_room:'Touchez un store pour le découvrir',screen:'Screen',blackout:'Blackout',jn:'Jour & Nuit',soon:'Bientôt',
+  toast_soon:'Ce modèle arrive bientôt dans le showroom virtuel.',p_kicker:'Store enrouleur',p_title:'Screen',p_tag:'Filtre la lumière, garde la vue.',
+  p_desc:"Une toile technique micro-ajourée qui coupe l'éblouissement et la chaleur tout en gardant la vue sur l'extérieur. Regardez le soleil au sol : avec le store baissé, la tache brûlante devient une lumière douce.",
+  feat:["Toile screen 5 % d'ouverture : vous voyez dehors, sans vis-à-vis en journée","Réduit la chaleur et l'éblouissement, protège des UV","Tube aluminium Ø 38 mm, chaînette à billes blanche","Barre de charge en aluminium laqué blanc","Toile classée feu M1 / NFPA 701","Fabriqué sur mesure à Casablanca"],
+  color:'Couleur',beige:'Beige',noir:'Noir',open:'▲ Ouvrir',close:'▼ Fermer',hold:'Maintenez appuyé pour monter ou descendre le store',
+  more:'Voir les détails',less:'Moins de détails',chain_hint:'Tirez la chaînette',day:'☀ Jour',night:'☾ Nuit',
+  fabric_hint:'Touchez la toile pour voir le tissu de près',fab_tip:'Touchez la toile pour voir la qualité',cta:'Demander mon devis sur WhatsApp',cta2:'Essayer ce store sur ma fenêtre',
+  q_head:'Pour votre devis, 2 petites infos :',q_win:'Combien de fenêtres ?',q_win_s:'1 fenêtre = 1 store',q_city:'Votre ville',q_city0:'Choisissez votre ville',q_city_err:'Choisissez votre ville pour continuer.',q_send:'Envoyer ma demande sur WhatsApp',q_safe:'🔒 Gratuit et sans engagement',
+  f_title:'Le tissu Screen de près',f_desc:"Un tissage serré et régulier : les micro-ouvertures laissent passer une lumière douce et la vue, la toile stoppe la chaleur et les UV.",
+  specs:[["Facteur d'ouverture","5 %"],['Poids','405 g/m² ±5 %'],['Épaisseur','0,58 mm'],['Largeur de toile',"jusqu'à 300 cm"],['Feu','M1 / NFPA 701'],['Entretien','Chiffon humide']],
+  f_back:'← Revenir au store',
+  wa:'Bonjour MSTORECASA, je souhaite un devis :\n• Store : enrouleur Screen\n• Couleur : {c}\n• Nombre de fenêtres : {n}\n• Ville : {v}\n(Vu dans le showroom virtuel)'},
+ ar:{brand:'المعرض الافتراضي',hint_room:'اضغط على ستارة لاكتشافها',screen:'سكرين',blackout:'بلاك أوت',jn:'ليل ونهار',soon:'قريباً',
+  toast_soon:'هذا النموذج سيتوفر قريباً في المعرض الافتراضي.',p_kicker:'ستارة رول',p_title:'سكرين',p_tag:'تُخفّف الضوء وتحافظ على الرؤية.',
+  p_desc:'قماش تقني بفتحات دقيقة يقلّل الوهج والحرارة مع الحفاظ على رؤية الخارج. انظر إلى الشمس على الأرض: عند إنزال الستارة تتحوّل البقعة الحارقة إلى ضوء ناعم.',
+  feat:['قماش سكرين بنسبة فتح 5٪: ترى الخارج دون أن يراك أحد نهاراً','يقلّل الحرارة والوهج ويحمي من الأشعة فوق البنفسجية','أنبوب ألومنيوم Ø 38 مم وسلسلة كريات بيضاء','قضيب سفلي من الألومنيوم المطلي بالأبيض','قماش مصنّف ضد الحريق M1 / NFPA 701','مصنوع حسب المقاس في الدار البيضاء'],
+  color:'اللون',beige:'بيج',noir:'أسود',open:'▲ فتح',close:'▼ إغلاق',hold:'اضغط مطوّلاً لرفع الستارة أو إنزالها',
+  more:'عرض التفاصيل',less:'إخفاء التفاصيل',chain_hint:'اسحب السلسلة',day:'☀ نهار',night:'☾ ليل',
+  fabric_hint:'اضغط على القماش لرؤيته عن قرب',fab_tip:'اضغط على القماش لرؤية جودته',cta:'اطلب عرض السعر عبر واتساب',cta2:'جرّب هذه الستارة على نافذتي',
+  q_head:'لعرض السعر، معلومتان فقط:',q_win:'كم عدد النوافذ؟',q_win_s:'نافذة واحدة = ستارة واحدة',q_city:'مدينتك',q_city0:'اختر مدينتك',q_city_err:'اختر مدينتك للمتابعة.',q_send:'أرسل طلبي عبر واتساب',q_safe:'🔒 مجاني وبدون أي التزام',
+  f_title:'قماش سكرين عن قرب',f_desc:'نسيج محكم ومنتظم: الفتحات الدقيقة تُدخل ضوءاً ناعماً وتحافظ على الرؤية، والقماش يصدّ الحرارة والأشعة فوق البنفسجية.',
+  specs:[['نسبة الفتح','5٪'],['الوزن','405 غ/م² ±5٪'],['السُّمك','0,58 مم'],['عرض القماش','حتى 300 سم'],['مقاومة الحريق','M1 / NFPA 701'],['التنظيف','قطعة قماش مبللة']],
+  f_back:'→ الرجوع إلى الستارة',
+  wa:'السلام عليكم MSTORECASA، أريد عرض سعر:\n• الستارة: رول سكرين\n• اللون: {c}\n• عدد النوافذ: {n}\n• المدينة: {v}\n(من المعرض الافتراضي)'}
+};
+
+/* Blackout texts (fiche technique p.5: 0 % light transmission, bedrooms / hotels); everything else = T */
+var PT={blackout:{
+ fr:{p_title:'Blackout',p_tag:'Bloque 100 % de la lumière.',
+  p_desc:"Une toile totalement occultante : elle bloque la lumière et le soleil direct. Regardez la pièce : store baissé, la tache de soleil au sol disparaît et la pièce devient sombre. Idéal pour les chambres.",
+  feat:["Toile occultante : transmission lumineuse 0 %","Bloque le rayonnement solaire direct","Idéal pour les chambres et l'hôtellerie","Tube aluminium Ø 38 mm, chaînette à billes blanche","Barre de charge en aluminium laqué blanc","Fabriqué sur mesure à Casablanca"],
+  f_title:'Le tissu Blackout de près',f_desc:"Un tissu dense à l'aspect lin : aucune lumière ne passe à travers la toile.",
+  specs:[['Transmission lumineuse','0 %'],['Usage','Chambre · hôtellerie'],['Largeur de toile',"jusqu'à 300 cm"],['Tube','Aluminium Ø 38 mm'],['Entretien','Chiffon humide']],
+  wa:'Bonjour MSTORECASA, je souhaite un devis :\n• Store : enrouleur Blackout\n• Couleur : {c}\n• Nombre de fenêtres : {n}\n• Ville : {v}\n(Vu dans le showroom virtuel)'},
+ ar:{p_title:'بلاك أوت',p_tag:'يحجب الضوء بنسبة 100٪.',
+  p_desc:'قماش معتم كلياً: يحجب الضوء وأشعة الشمس المباشرة. انظر إلى الغرفة: عند إنزال الستارة تختفي بقعة الشمس من الأرض وتصبح الغرفة مظلمة. مثالي لغرف النوم.',
+  feat:['قماش معتم: نفاذية الضوء 0٪','يحجب أشعة الشمس المباشرة','مثالي لغرف النوم والفنادق','أنبوب ألومنيوم Ø 38 مم وسلسلة كريات بيضاء','قضيب سفلي من الألومنيوم المطلي بالأبيض','مصنوع حسب المقاس في الدار البيضاء'],
+  f_title:'قماش بلاك أوت عن قرب',f_desc:'نسيج كثيف بمظهر الكتان: لا يمرّ أي ضوء عبر القماش.',
+  specs:[['نفاذية الضوء','0٪'],['الاستعمال','غرف النوم · الفنادق'],['عرض القماش','حتى 300 سم'],['الأنبوب','ألومنيوم Ø 38 مم'],['التنظيف','قطعة قماش مبللة']],
+  wa:'السلام عليكم MSTORECASA، أريد عرض سعر:\n• الستارة: رول بلاك أوت\n• اللون: {c}\n• عدد النوافذ: {n}\n• المدينة: {v}\n(من المعرض الافتراضي)'}
+},
+/* Jour & Nuit: band sizes = the ones of /essayer-votre-store/ (opaque band 6 cm, one band every 10.5 cm) */
+jn:{
+ fr:{p_title:'Jour & Nuit',p_tag:'Le jour ou la nuit, en un geste.',
+  p_desc:"Une toile double à bandes : des bandes opaques et des bandes de voile en alternance. Tirez la chaînette : bandes alignées, la lumière passe par le voile (jour) ; bandes décalées, les bandes opaques se recouvrent (nuit). Regardez le soleil au sol changer.",
+  feat:["Bandes opaques et bandes de voile en alternance, sur deux épaisseurs","Jour : le voile laisse passer la lumière et la vue","Nuit : les bandes opaques se superposent pour votre intimité","Réglage précis à la chaînette à billes blanche","Barre de charge en aluminium laqué blanc","Fabriqué sur mesure à Casablanca"],
+  hold:'Touchez Jour ou Nuit, ou maintenez Ouvrir / Fermer pour monter ou descendre le store',
+  f_title:'Le tissu Jour & Nuit de près',f_desc:"Une bande de tissu texturé alterne avec une bande de voile en maille fine : c'est leur superposition qui règle la lumière.",
+  specs:[['Bandes opaques','6 cm'],['Une bande tous les','10,5 cm'],['Réglage','Chaînette : jour ↔ nuit'],['Fabrication','Sur mesure'],['Entretien','Chiffon humide']],
+  wa:'Bonjour MSTORECASA, je souhaite un devis :\n• Store : Jour & Nuit\n• Couleur : {c}\n• Nombre de fenêtres : {n}\n• Ville : {v}\n(Vu dans le showroom virtuel)'},
+ ar:{p_title:'ليل ونهار',p_tag:'النهار أو الليل بحركة واحدة.',
+  p_desc:'قماش مزدوج بأشرطة: أشرطة معتمة وأشرطة شفافة بالتناوب. اسحب السلسلة: عندما تتطابق الأشرطة يمرّ الضوء عبر الشفاف (نهار)، وعندما تتداخل تغطي الأشرطة المعتمة كل شيء (ليل). انظر كيف تتغيّر الشمس على الأرض.',
+  feat:['أشرطة معتمة وأشرطة شفافة بالتناوب على طبقتين','النهار: الشريط الشفاف يُدخل الضوء ويحافظ على الرؤية','الليل: تتراكب الأشرطة المعتمة للحفاظ على خصوصيتك','ضبط دقيق بسلسلة كريات بيضاء','قضيب سفلي من الألومنيوم المطلي بالأبيض','مصنوع حسب المقاس في الدار البيضاء'],
+  hold:'اضغط على نهار أو ليل، أو اضغط مطوّلاً على فتح / إغلاق لرفع الستارة أو إنزالها',
+  f_title:'قماش ليل ونهار عن قرب',f_desc:'شريط من القماش المنسوج يتناوب مع شريط شفاف بشبكة دقيقة: تراكبهما هو الذي يتحكم في الضوء.',
+  specs:[['الأشرطة المعتمة','6 سم'],['شريط كل','10,5 سم'],['الضبط','السلسلة: نهار ↔ ليل'],['الصنع','حسب المقاس'],['التنظيف','قطعة قماش مبللة']],
+  wa:'السلام عليكم MSTORECASA، أريد عرض سعر:\n• الستارة: ليل ونهار\n• اللون: {c}\n• عدد النوافذ: {n}\n• المدينة: {v}\n(من المعرض الافتراضي)'}
+}};
+COLORS.forEach(function(c){ T.fr[c.id]=c.fr; T.ar[c.id]=c.ar; });
+var $ = function(id){return document.getElementById(id);};
+var root=$('mst-sr'), cv=$('srCanvas'), ctx=cv.getContext('2d'), hots=$('srHots');
+var lang = (function(){try{return localStorage.getItem('mstsr-lang')||'fr'}catch(e){return 'fr'}})();
+var orient=null, view='room', color='beige', busy=false, moreOpen=false;
+var vw=0, vh=0, dpr=1;
+var p=0, pv=0;                 /* 0 = blind fully down, 1 = fully up ; p = target, pv = shown */
+var holdT0=0, holdDir=0, dragging=false, handleDy=0, demo=null, interacted=false;
+var zoomU=0, zoomAnim=null, fabZ=1, fabAnim=null, fabPt={x:0,y:0};
+var colorFade=null, needDraw=true, tipTimer=0;
+var S={};                       /* loaded images per orientation */
+
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+function smooth(a,b,x){var t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);}
+function t(k){ var o=PT[prod]&&PT[prod][lang]; return (o && (k in o))? o[k] : T[lang][k]; }
+function setView(v){ view=v; root.classList.remove('v-room','v-zoom','v-product','v-fabric'); root.classList.add('v-'+v); needDraw=true; }
+function mk(w,h){ var c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
+
+/* ---------- images ---------- */
+var imgCache={};
+function img(src){
+  if(!imgCache[src]) imgCache[src]=new Promise(function(res,rej){ var i=new Image(); i.decoding='async'; i.onload=function(){res(i)}; i.onerror=function(){delete imgCache[src]; rej(src)}; i.src=BASE+src+'?v=24'; });
+  return imgCache[src];
+}
+function loadRoom(o){
+  return img(ROOM[o].src).then(function(i){ var s=S[o]||(S[o]={}); s.room=i; s.roomSmall=small(i); needDraw=true; });
+}
+function loadProd(o){
+  var P=PROD[o];
+  var r=P.pre.replace('prod-','roll-'), b=P.pre.replace('prod-','bar-').replace(/-$/,'.png');
+  var s=S[o]||(S[o]={});
+  if(!s.base) s.base=Promise.all([img(P.pre+'up-beige.jpg'), img(P.pre+'beige.jpg'), img(r+'beige.png'), img(b)]).then(function(a){
+    s.D={'screen:beige':a[1]}; s.roll={beige:a[2]}; s.bar=a[3];
+    s.prodA=mk(P.W,P.H); s.prodB=mk(P.W,P.H); s.tmp=mk(P.W,P.H); s.fe=mk(P.W,P.H);
+    s.mask=featherMask(P.W,P.H); s.prodSmall=small(a[1]); s.keyA=''; s.keyB='';
+    try{ s.rk=buildRollKit(s,P); }catch(e){ s.rk=null; }
+    s.U=a[0];
+  });
+  return s.base.then(function(){ return loadColor(o,color); });
+}
+/* down layer + roller of one colour (beige comes with the base) */
+function loadColor(o,col){
+  var P=PROD[o], s=S[o], r=P.pre.replace('prod-','roll-'), pr=prod, key=pr+':'+col;
+  var zb=PRODS[pr].zebra, n=P.pre.slice(5,8);
+  if(s.D[key] && s.roll[col] && (!zb || s.jnv)) return Promise.resolve();
+  return Promise.all([img(P.pre+PRODS[pr].d+col+'.jpg'), img(r+col+'.png'), zb? img('jnv-'+n+'.jpg') : null, zb? img('jnsun-'+n+'.png') : null, zb? img('cassette-'+n+'.png') : null]).then(function(a){
+    s.D[key]=a[0]; s.roll[col]=a[1];
+    if(zb){ s.jnv=a[2]; s.jsun=a[3]; s.cas=a[4]; if(!s.zbMask) s.zbMask=mk(1,P.H); }
+    if(s.rk) rkColor(s,P,col,pr);
+  });
+}
+function small(i){ var c=mk(40,Math.round(40*i.height/i.width)); c.getContext('2d').drawImage(i,0,0,c.width,c.height); return c; }
+function featherMask(w,h){
+  var c=mk(w,h), g=c.getContext('2d'), f=0.04;
+  g.fillStyle='#000'; g.fillRect(0,0,w,h); g.globalCompositeOperation='destination-in';
+  var a=g.createLinearGradient(0,0,w,0); a.addColorStop(0,'rgba(0,0,0,0)'); a.addColorStop(f,'#000'); a.addColorStop(1-f,'#000'); a.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=a; g.fillRect(0,0,w,h);
+  var b=g.createLinearGradient(0,0,0,h); b.addColorStop(0,'rgba(0,0,0,0)'); b.addColorStop(f,'#000'); b.addColorStop(1-f,'#000'); b.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=b; g.fillRect(0,0,w,h);
+  return c;
+}
+
+/* ---------- product compositor ---------- */
+/* U = blind up, D = blind fully down. The fabric is cut at the bottom-bar height,
+   the room light (sun patch on the floor) opens progressively from the wall outwards. */
+function renderProduct(cnv, col, pp){
+  var P=PROD[orient], s=S[orient], c=cnv.getContext('2d');
+  var x0=P.fab[0], y0=P.fab[1], x1=P.fab[2], y1=P.fab[3], L=y1-y0;
+  c.globalCompositeOperation='source-over'; c.globalAlpha=1;
+  var ZBR=PRODS[prod].zebra && s.jnv && s.D[prod+':'+col];
+  if(ZBR) renderZebra(c,s,P,col,pp);
+  else c.drawImage(s.U,0,0);
+  if(pp<0.999 && !ZBR){
+    var tc=s.tmp.getContext('2d');
+    var DL=s.D[prod+':'+col];
+    tc.globalCompositeOperation='source-over'; tc.clearRect(0,0,P.W,P.H); tc.drawImage(DL,0,0);
+    tc.globalCompositeOperation='destination-in'; tc.fillStyle=roomGrad(tc,P,pp); tc.fillRect(0,0,P.W,P.H);
+    var PQ=PRODS[prod], mg=PQ.rollTex? 3 : 10;        /* opaque blackout: only the cloth (+ its edge light) is cut, the wall beside it follows the room */
+    tc.globalCompositeOperation='destination-out'; tc.fillStyle='#000'; tc.fillRect(x0-mg,y0-2,(x1-x0)+2*mg,PQ.rollTex? L+2 : L+18);
+    c.drawImage(s.tmp,0,0);
+    var hc=(1-pp)*L;
+    if(hc>0.5){
+      c.drawImage(DL, x0-mg,y0,(x1-x0)+2*mg,hc, x0-mg,y0,(x1-x0)+2*mg,hc);
+      var gl=litGain(pp);                                /* the cloth is lit by the room: brighter as more window is open */
+      if(gl>1.001){ c.globalCompositeOperation='lighter'; for(var rem=gl-1; rem>0.001; rem-=1){ c.globalAlpha=Math.min(1,rem); c.drawImage(DL, x0,y0,x1-x0,hc, x0,y0,x1-x0,hc); } c.globalCompositeOperation='source-over'; c.globalAlpha=1; }
+    }
+  }
+  /* real roller (cut from an NB2 photo, build: Assets/Showroom virtuel sources/roll.py) + its real bottom bar,
+     the bar follows the fabric edge and tucks under the roll when the blind is up */
+  var ZC=PRODS[prod].zebra && s.cas, R=P.roll, b=R.b, rh=(R.body[1]-R.body[0])/2, top=ZC? P.cas[3]-2 : s.rk? R.body[0]+rh+rh*(0.76+0.24*pp)-1.5 : b[1];   /* the bar tucks right under the (thicker) roll */
+  var by=Math.max(top, y0+(1-pp)*L-b[3]*0.3), low=clamp((by-top)/6,0,1);
+  c.save(); c.shadowColor='rgba(40,28,16,'+(.18+.14*low).toFixed(3)+')'; c.shadowBlur=2+4*low; c.shadowOffsetY=1+2.5*low;
+  var Lh=ZC? 1-(s.zbDim||0)*0.7 : hwLight(pp);
+  c.drawImage(dimImg(s,'bar',s.bar,Lh), b[0], by, b[2], b[3]); c.restore();
+  if(ZC){ var cs=P.cas;                                   /* jour et nuit: the real white cassette (cassette.py), no visible roll */
+    c.save(); c.shadowColor='rgba(40,28,16,.22)'; c.shadowBlur=5; c.shadowOffsetY=2;
+    c.drawImage(dimImg(s,'cas',s.cas,Lh), cs[0], cs[1], cs[2]-cs[0], cs[3]-cs[1]); c.restore(); }
+  else if(s.rk){ drawRoll(c,s,P,col,pp,L); c.drawImage(dimImg(s,'ends',s.rk.ends[col],Lh), R.x, R.y); }
+  else c.drawImage(s.roll[col], R.x, R.y);
+}
+/* ---------- Jour & Nuit (zebra) ----------
+   Same mechanics as /essayer-votre-store/: ONE cloth in a loop, front layer + back layer, opaque bands 6 cm,
+   one band every 10.5 cm. The front bands slide 2x the bar travel over the fixed back bands:
+   aligned = day (light through the voile), overlapped = night. Fully down = night.
+   Pieces (Assets/Showroom virtuel sources/jn.py): D = room without sun + the real band texture,
+   jnv = the window seen through the voile, jsun = the hard sun patch, striped here by the bands. */
+var ZB={band:6, period:10.5, win:140};
+function zbGeo(){ var F=PROD[orient].fab, k=(F[2]-F[0])/ZB.win; return {k:k, L:F[3]-F[1], band:ZB.band*k, period:ZB.period*k}; }
+function zbShift(pp){ var G=zbGeo(), d=2*pp*G.L; return (((G.period/2-d)%G.period)+G.period)%G.period; }
+function zbDayP(){ var G=zbGeo(); return (G.period/2)/(2*G.L); }      /* first day position above the bottom */
+function zbDay(sh){ var G=zbGeo(), b=G.band, P=G.period, cov= sh<=b? Math.min(P,sh+b) : b+Math.min(P-sh,b); return (P-cov)/(P-b); }
+function zbBands(top,bot,sh){
+  var G=zbGeo(), front=[], back=[];
+  for(var y=top-G.period; y<bot; y+=G.period){ back.push([y,y+G.band]); front.push([y+sh,y+sh+G.band]); }
+  var clip=function(l){ return l.map(function(a){ return [Math.max(a[0],top),Math.min(a[1],bot)]; }).filter(function(a){ return a[1]-a[0]>0.05; }); };
+  return {front:clip(front), back:clip(back)};
+}
+function zbIn(list,y){ for(var i=0;i<list.length;i++) if(y>=list[i][0] && y<list[i][1]) return true; return false; }
+function renderZebra(c,s,P,col,pp){
+  var DL=s.D['jn:'+col], F=P.fab, x0=F[0], y0=F[1], x1=F[2], y1=F[3], w=x1-x0, L=y1-y0, bot=y0+(1-pp)*L;
+  var G=zbGeo(), B=zbBands(y0,bot,zbShift(pp));
+  /* light that goes through the window, row by row: voile 0.78, one opaque band ~0.15, both 0.03, open 1 */
+  var tr=function(y){ if(y>=bot) return 1; var f=zbIn(B.front,y), b=zbIn(B.back,y); return f? (b?0.03:0.12) : (b?0.18:0.78); };
+  /* 1. room without sun */
+  c.drawImage(DL,0,0);
+  /* 2. the sun patch on the floor, striped by the bands (window bottom = the patch edge near the wall) */
+  var H=P.H, s0=P.sunY[0], s1=P.sunY[1], mc=s.zbMask.getContext('2d'), md=mc.createImageData(1,H), sumT=0, nT=0;
+  var hs=L/(s1-s0)/2;
+  for(var y=0;y<H;y++){
+    var r=clamp((y-s0)/(s1-s0),0,1), wy=y1-r*L, a=0;
+    for(var j=0;j<4;j++) a+=tr(clamp(wy-hs+hs*(j+0.5)/2,y0,y1-0.01));
+    md.data[y*4+3]=Math.round(255*a/4);
+  }
+  for(var y=y0;y<y1;y+=2){ sumT+=tr(y); nT++; }
+  mc.putImageData(md,0,0);
+  var tc=s.tmp.getContext('2d'); tc.globalCompositeOperation='source-over'; tc.globalAlpha=1; tc.clearRect(0,0,P.W,P.H);
+  tc.drawImage(s.jsun, P.jsun[0], P.jsun[1]);
+  tc.globalCompositeOperation='destination-in'; tc.imageSmoothingEnabled=true; tc.drawImage(s.zbMask,0,0,1,H,0,0,P.W,H);
+  tc.globalCompositeOperation='source-over';
+  c.drawImage(s.tmp,0,0);
+  /* the room is a little darker in night position (opaque bands), lit in day position */
+  var Tm=sumT/nT, dim=0.46*clamp((0.33-Tm)/0.26,0,1);   /* day position (Tm ~0.35) = no dimming, night (~0.07) = darkest */
+  s.zbDim=dim;
+  if(dim>0.002){ c.fillStyle='rgba(0,0,0,'+dim.toFixed(3)+')'; c.fillRect(0,0,P.W,P.H); }
+  /* 3. window under the bar: the real photo */
+  if(bot<y1-0.3) c.drawImage(s.U, x0,bot,w,y1-bot, x0,bot,w,y1-bot);
+  /* 4. the cloth: voile everywhere, back bands seen through the front voile, front bands on top */
+  var hc=bot-y0; if(hc<=0.3) return;
+  c.save(); c.beginPath(); c.rect(x0,y0,w,hc); c.clip();
+  if(dim>0.002){ c.globalAlpha=1-dim*0.6; }
+  c.drawImage(s.jnv, 0,0,w,Math.min(L,Math.ceil(hc)), x0,y0,w,Math.min(L,Math.ceil(hc)));
+  c.globalAlpha=1;
+  var bs=Math.round(G.band);                                /* one band of the real texture (top rows of D) */
+  B.back.forEach(function(b){ var yy=b[0]>y0? b[0] : b[1]-G.band; c.drawImage(DL, x0,y0,w,bs, x0,yy,w,G.band); });
+  if(B.back.length){ c.fillStyle='rgba(240,239,235,.30)'; B.back.forEach(function(b){ c.fillRect(x0,b[0],w,b[1]-b[0]); }); }
+  B.front.forEach(function(b){ var yy=b[0]>y0? b[0] : b[1]-G.band; c.drawImage(DL, x0,y0,w,bs, x0,yy,w,G.band); });
+  if(dim>0.002){ c.fillStyle='rgba(0,0,0,'+(dim*0.45).toFixed(3)+')'; c.fillRect(x0,y0,w,hc); }   /* the room light on the cloth front drops at night */
+  var g=c.createLinearGradient(0,y0,0,y0+8); g.addColorStop(0,'rgba(0,0,0,.30)'); g.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=g; c.fillRect(x0,y0,w,8);                      /* soft shadow under the roll */
+  c.restore();
+}
+/* the roll is ONE piece with the fabric: the tube is re-rendered with the photo's own shading but in the colour
+   of the fabric hanging right under it (no dark gap), fibre streaks scroll when it turns, and it gets thicker
+   as the fabric winds up (thin when the blind is down, the photo's size when it is up) */
+function buildRollKit(s,P){
+  var R=P.roll, im=s.roll.beige, w=im.width, h=im.height;
+  var g=mk(w,h).getContext('2d'); g.drawImage(im,0,0);
+  var d=g.getImageData(0,0,w,h).data, t0=R.body[0]-R.y, t1=R.body[1]-R.y, bh=t1-t0;
+  var c0=w, c1=0;
+  for(var x=0;x<w;x++){ var n=0; for(var y=t0;y<t1;y++){ var i=(y*w+x)*4; if(d[i+3]>200 && d[i]-d[i+2]>30) n++; } if(n>bh*0.7){ c0=Math.min(c0,x); c1=Math.max(c1,x); } }
+  if(R.cap) c1=Math.min(c1, R.cap[0]-R.x-1);
+  if(c1<=c0) return null;
+  var bw=c1-c0+1, sh=new Float32Array(bw*bh), ref=0, k=0;
+  var lum=function(i){ return d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114; };
+  for(var y=t1-2;y<t1;y++) for(var x=c0+10;x<=c1-10;x++){ ref+=lum((y*w+x)*4); k++; }
+  ref/=k;                                               /* bottom of the tube = exactly the fabric colour */
+  for(var y=0;y<bh;y++) for(var x=0;x<bw;x++) sh[y*bw+x]=1-(1-lum(((y+t0)*w+x+c0)*4)/ref)*0.55;   /* softer: same cloth, only the curve shades it */
+  var ends={}, base={};
+  var N=4096, st=new Float32Array(N), nz=new Float32Array(64*64), seed=7;
+  var rnd=function(){ seed=(seed*16807)%2147483647; return seed/2147483647; };
+  var ph=[rnd()*6.3,rnd()*6.3,rnd()*6.3,rnd()*6.3];
+  for(var v=0;v<N;v++) st[v]=0.030*Math.sin(v*6.283/11.3+ph[0])+0.022*Math.sin(v*6.283/27.1+ph[1])+0.014*Math.sin(v*6.283/5.3+ph[2])+0.010*Math.sin(v*6.283/63+ph[3]);
+  for(var i=0;i<nz.length;i++) nz[i]=(rnd()-0.5)*0.05;
+  var H=bh+2, cv=mk(bw,H);
+  var K={c0:c0, bw:bw, bh:bh, t0:t0, w:w, h:h, sh:sh, ends:ends, base:base, st:st, nz:nz, cv:cv, H:H, id:cv.getContext('2d').createImageData(bw,H)};
+  s.rk=K; rkColor(s,P,'beige','screen');
+  return K;
+}
+/* per colour: the photo's end pieces (body cleared) and the colour of the fabric hanging under the roll */
+function rkColor(s,P,col,pr){
+  var K=s.rk, R=P.roll, bw=K.bw, c0=K.c0, t0=K.t0, key=pr+':'+col, gn=PRODS[pr].rollGain;
+  var e=mk(K.w,K.h), eg=e.getContext('2d'); eg.drawImage(s.roll[col],0,0); eg.clearRect(c0,t0-2,bw,K.h-t0+2); K.ends[col]=e;
+  var fg=mk(bw-40,8).getContext('2d'); fg.drawImage(s.D[key], R.x+c0+20, R.body[1]+6, bw-40, 8, 0,0,bw-40,8);
+  var fd=fg.getImageData(0,0,bw-40,8).data, m=[0,0,0];
+  for(var i=0;i<fd.length;i+=4){ m[0]+=fd[i]; m[1]+=fd[i+1]; m[2]+=fd[i+2]; }
+  var n=fd.length/4, mx=PRODS[pr].rollMix||0; K.base[key]=[0,1,2].map(function(i){ return Math.min(255,(m[i]/n*gn)*(1-mx)+236*mx); });
+  /* blackout: the fabric wound on the tube is the SAME cloth, so the tube is painted with the real pixels of the
+     fabric hanging under it (64 rows, wrapped around the tube), only the curve shades it, matte (no shine) */
+  if(PRODS[pr].rollTex){
+    var F=P.fab, TH=64, tg=mk(bw,TH).getContext('2d'), sx=Math.max(R.x+c0,F[0]+2), sw=Math.min(R.x+c0+bw,F[2]-2)-sx;
+    tg.drawImage(s.D[key], sx, R.body[1]+6, sw, TH, sx-(R.x+c0), 0, sw, TH);
+    if(sx>R.x+c0) tg.drawImage(tg.canvas, sx-(R.x+c0), 0, 1, TH, 0, 0, sx-(R.x+c0), TH);
+    var ex=sx-(R.x+c0)+sw; if(ex<bw) tg.drawImage(tg.canvas, ex-1, 0, 1, TH, ex, 0, bw-ex, TH);
+    var td=tg.getImageData(0,0,bw,TH).data, tx=new Float32Array(bw*TH*3);
+    for(var j=0,q=0;j<td.length;j+=4,q+=3){ tx[q]=td[j]; tx[q+1]=td[j+1]; tx[q+2]=td[j+2]; }
+    K.tex=K.tex||{}; K.tex[key]=tx;
+  }
+}
+function drawRoll(c,s,P,col,pp,L){
+  var K=s.rk, R=P.roll, r0=K.bh/2, yc=R.body[0]+r0, r=r0*(0.76+0.24*pp), top=R.body[0]-1;
+  var bw=K.bw, dd=K.id.data, B=K.base[prod+':'+col]||K.base['screen:beige'], off=1000+pp*L*0.9;
+  var TX=K.tex && K.tex[prod+':'+col], gl=litGain(pp);   /* same light as the cloth under it: dark room = same pixels, brighter as the room opens */
+  for(var y=0;y<K.H;y++){
+    var dy=top+y+0.5-yc, a=clamp(r-Math.abs(dy)+0.5,0,1), row=y*bw*4;
+    if(a<=0){ for(var x=0;x<bw;x++) dd[row+x*4+3]=0; continue; }
+    var u=clamp(dy/r,-1,1), ri=Math.min(K.bh-1,Math.max(0,Math.floor(u*r0+r0)));
+    var v=Math.floor(r*Math.asin(u)+off), str=K.st[v&4095], nrow=(v&63)<<6;
+    if(TX){                                             /* blackout: real cloth pixels, matte curve shading */
+      var tr=(v&63)*bw*3;
+      for(var x=0;x<bw;x++){
+        var e=Math.min(x+1,bw-x,3)/3, sh=K.sh[ri*bw+x], m=(sh>1? 1+(sh-1)*0.25 : 1-(1-sh)*0.8)*gl, i=row+x*4, q=tr+x*3;
+        dd[i]=Math.min(255,TX[q]*m); dd[i+1]=Math.min(255,TX[q+1]*m); dd[i+2]=Math.min(255,TX[q+2]*m); dd[i+3]=255*a*e;
+      }
+      continue;
+    }
+    for(var x=0;x<bw;x++){
+      var e=Math.min(x+1,bw-x,3)/3, m=K.sh[ri*bw+x]*(1+str+K.nz[nrow|(x&63)]), i=row+x*4;
+      dd[i]=B[0]*m; dd[i+1]=B[1]*m; dd[i+2]=B[2]*m; dd[i+3]=255*a*e;
+    }
+  }
+  var g=K.cv.getContext('2d'); g.putImageData(K.id,0,0);
+  c.drawImage(K.cv, R.x+K.c0, top);
+}
+/* blackout: the room goes dark as the cloth comes down, everything in the room follows the same light:
+   litGain = how much the cloth / roll are lifted from their closed-room pixels, hwLight = brackets, bar, chain */
+function litGain(pp){ var Q=PRODS[prod]; return Q.rollTex? 1+(Q.rollGain-1)*pp : 1; }
+function hwLight(pp){ var Q=PRODS[prod]; return Q.rollTex? litGain(pp)/Q.rollGain : 1; }
+function dimImg(s,name,img,Lr){
+  if(Lr>=0.999) return img;
+  var k='_dim'+name, cv=s[k];
+  if(!cv || cv.width!==img.width || cv.height!==img.height) cv=s[k]=mk(img.width,img.height);
+  var g=cv.getContext('2d'); g.globalCompositeOperation='source-over'; g.clearRect(0,0,cv.width,cv.height); g.drawImage(img,0,0);
+  g.globalCompositeOperation='source-atop'; g.fillStyle='rgba(0,0,0,'+(1-Lr).toFixed(3)+')'; g.fillRect(0,0,cv.width,cv.height);
+  g.globalCompositeOperation='source-over'; return cv;
+}
+function roomGrad(g,P,pp){
+  var H=P.H, s0=P.sunY[0], s1=P.sunY[1], f=0.28, base=1-pp, gr=g.createLinearGradient(0,0,0,H);
+  var add=function(y,a){ gr.addColorStop(clamp(y/H,0,1),'rgba(0,0,0,'+clamp(a,0,1).toFixed(3)+')'); };
+  add(0,base); add(s0-40,base);
+  for(var i=0;i<=10;i++){ var r=i/10; add(s0+r*(s1-s0), (r-(pp*(1+f)-f))/f); }
+  add(s1+40,base); add(H,base);
+  return gr;
+}
+
+/* our bead chain, drawn in screen space so it stays big and clear on every screen */
+function drawChain(g, m, alpha){
+  var C=PROD[orient].chain;
+  var ZC=PRODS[prod].zebra && S[orient] && S[orient].cas, cTop=ZC? PROD[orient].cas[3]-1 : C.top;
+  var xa=m.ox+C.x1*m.sp, xb=m.ox+C.x2*m.sp, yT=m.oy+cTop*m.sp, yB=m.oy+C.bot*m.sp;
+  /* real proportions: 4.5 mm beads every 6 mm on a thin cord, the two strands hang close together */
+  var r=clamp(m.sp*0.6,0.6,1.1), xc=(xa+xb)/2, gap=Math.max(xb-xa, r*3.2); xa=xc-gap/2; xb=xc+gap/2;
+  var rad=gap/2, len=yB-yT, Ltot=len*2+Math.PI*rad, d=r*2.6;
+  var pts=[], off=(pv*len*1.8)%d;
+  for(var s=off; s<Ltot; s+=d){
+    var x,y;
+    if(s<len){ x=xa; y=yT+s; }
+    else if(s<len+Math.PI*rad){ var a=Math.PI-(s-len)/rad; x=xc+Math.cos(a)*rad; y=yB+Math.sin(a)*rad; }
+    else { x=xb; y=yB-(s-len-Math.PI*rad); }
+    pts.push(x,y);
+  }
+  var path=function(dx,dy){ g.beginPath(); g.moveTo(xa+dx,yT+dy); g.lineTo(xa+dx,yB+dy); g.arc(xc+dx,yB+dy,rad,Math.PI,0,true); g.lineTo(xb+dx,yT+dy); };
+  var Lh=ZC? 1-(S[orient].zbDim||0)*0.6 : Math.max(hwLight(pv),0.5), gv=function(v){ v=Math.round(v*Lh); return 'rgb('+v+','+v+','+v+')'; };
+  g.save(); g.globalAlpha=alpha;
+  /* soft shadow on the wall */
+  g.strokeStyle='rgba(60,45,30,.16)'; g.lineWidth=r*2; path(r*1.1,r*1.6); g.stroke();
+  /* cord */
+  g.strokeStyle=gv(168); g.lineWidth=Math.max(.6,r*.45); path(0,0); g.stroke();
+  /* beads */
+  for(var i=0;i<pts.length;i+=2){
+    var bx=pts[i], by=pts[i+1], gr=g.createRadialGradient(bx-r*.35,by-r*.4,r*.1,bx,by,r);
+    gr.addColorStop(0,gv(242)); gr.addColorStop(.6,gv(230)); gr.addColorStop(1,gv(180));
+    g.beginPath(); g.arc(bx,by,r,0,Math.PI*2); g.fillStyle=gr; g.fill();
+  }
+  var Rl=PROD[orient].roll, K=S[orient]&&S[orient].rk;
+  if(Rl.cap && K && !ZC){                                        /* the real mechanism from the photo, over the top of the chain */
+    var cp=Rl.cap, cw=cp[2]-cp[0], ch=cp[3]-cp[1];
+    g.drawImage(dimImg(S[orient],'cap',K.ends[color]||K.ends.beige,hwLight(pv)), cp[0]-Rl.x, cp[1]-Rl.y, cw, ch, m.ox+cp[0]*m.sp, m.oy+cp[1]*m.sp, cw*m.sp, ch*m.sp);
+  }
+  g.restore();
+  return {x:xc, top:yT, bot:yB+rad, r:r};
+}
+
+/* ---------- cameras ---------- */
+function roomCam(){
+  var R=ROOM[orient], s=Math.max(vw/R.W, vh/R.H);
+  s=Math.min(s, vw/(R.W*0.96)); s=Math.max(s, Math.min(vw/R.W, vh/R.H));   /* never crop the three windows */
+  return {s:s, tx:(vw-R.W*s)/2, ty:(vh-R.H*s)/2};
+}
+function freeArea(){
+  var pan=$('srPanel');
+  var top=Math.min(58, vh*0.1);                          /* under the close / language buttons */
+  if(orient==='l'){ var pw=Math.min(400, vw*0.34)+vw*0.04+24; return {x:0,y:top,w:Math.max(200,vw-pw),h:vh-top}; }
+  var ph=pan.offsetHeight||Math.round(vh*0.4);
+  if(pan.classList.contains('open')||pan.classList.contains('quote')) ph=Math.min(ph, Math.round(vh*0.46));
+  return {x:0,y:top,w:vw,h:Math.max(160,vh-ph-14-top)};
+}
+/* product px -> screen, for the settled product view.
+   core = roller + fabric + bottom bar + chain: ALWAYS fully visible in the free area (never under the panel), on every screen.
+   focus = core + floor sun patch: shown too when there is room. */
+function fitAxis(c, aS, aL, vL, img, sp, f0, f1, k0, k1){
+  var pad=Math.min(12, aL*0.03), o=aS+aL/2-(f0+f1)/2*sp, o2;
+  /* 1. cover the whole screen if that keeps the blind in the free area (desktop: photo continues behind the panel) */
+  o2 = img*sp>=vL ? clamp(o, vL-img*sp, 0) : (c ? (vL-img*sp)/2 : o);
+  if(o2+k0*sp < aS+pad-1 || o2+k1*sp > aS+aL-pad+1){
+    /* 2. else cover the free area only */
+    o2 = img*sp>=aL ? clamp(o, aS+aL-img*sp, aS) : aS+(aL-img*sp)/2;
+  }
+  /* 3. the blind itself always wins */
+  var lo=aS+pad-k0*sp, hi=aS+aL-pad-k1*sp;
+  return lo<=hi ? clamp(o2, lo, hi) : (lo+hi)/2;
+}
+function prodMap(){
+  var P=PROD[orient], f=P.focus, k=P.core, A=freeArea(), fw=f[2]-f[0], fh=f[3]-f[1], kw=k[2]-k[0], kh=k[3]-k[1];
+  var sp=Math.min(A.w/fw, A.h/fh);                       /* the whole window + chain + sun patch visible when possible */
+  sp=Math.max(sp, Math.min(vw/P.W, sp*1.12));            /* fill the width when it costs only a little crop */
+  sp=Math.min(sp, (A.w-24)/kw, (A.h-24)/kh);              /* the blind always fits */
+  var ox=fitAxis(true,  A.x, A.w, vw, P.W, sp, f[0], f[2], k[0], k[2]);
+  var oy=fitAxis(false, A.y, A.h, vh, P.H, sp, f[1], f[3], k[1], k[3]);
+  return {sp:sp, ox:ox, oy:oy};
+}
+function prodCam(){                       /* the same thing expressed as a camera on the showroom photo */
+  var P=PROD[orient], m=prodMap(), k=P.PR[2]/P.W, S_=m.sp/k;
+  return {s:S_, tx:m.ox-P.PR[0]*S_, ty:m.oy-P.PR[1]*S_};
+}
+function camToMap(c){ var P=PROD[orient], k=P.PR[2]/P.W; return {sp:k*c.s, ox:c.tx+P.PR[0]*c.s, oy:c.ty+P.PR[1]*c.s}; }
+/* zoom around the fixed point of the two cameras: a real dolly-in on the window, nothing slides sideways */
+function camLerp(A,B,u){
+  var r=B.s/A.s;
+  if(Math.abs(r-1)<1e-4) return {s:A.s+(B.s-A.s)*u, tx:A.tx+(B.tx-A.tx)*u, ty:A.ty+(B.ty-A.ty)*u, fx:vw/2, fy:vh/2};
+  var Fx=(B.tx-A.tx*r)/(1-r), Fy=(B.ty-A.ty*r)/(1-r);
+  var s=A.s*Math.pow(r,u), wx=(Fx-A.tx)/A.s, wy=(Fy-A.ty)/A.s;
+  return {s:s, tx:Fx-wx*s, ty:Fy-wy*s, fx:Fx, fy:Fy};
+}
+function withFab(m){ if(fabZ===1) return m; return {sp:m.sp*fabZ, ox:fabPt.x-(fabPt.x-m.ox)*fabZ, oy:fabPt.y-(fabPt.y-m.oy)*fabZ}; }
+
+/* ---------- drawing ---------- */
+var fx=mk(2,2), fxc=fx.getContext('2d');
+/* backdrop around the close-up when the photo does not fill the screen: the photo's OWN edges (wall, ceiling, floor)
+   continued outwards, from the small blurred copy. Never a scaled copy of the whole picture (that put a ghost of
+   the blind on the walls). */
+function edgeFill(g, m){
+  var s=S[orient], sm=s&&s.prodSmall, P=PROD[orient]; if(!sm) return;
+  var w=sm.width, h=sm.height, X=m.ox, Y=m.oy, W=P.W*m.sp, H=P.H*m.sp, R=X+W, B=Y+H;
+  g.save(); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+  g.drawImage(sm, X,Y,W,H);                                            /* under the soft edges of the photo */
+  if(X>0) g.drawImage(sm, 0,0,1,h, -1,Y, X+2,H);                       /* left wall */
+  if(R<vw) g.drawImage(sm, w-1,0,1,h, R-1,Y, vw-R+2,H);                /* right wall */
+  var x0=Math.max(X,0), x1=Math.min(R,vw), sx0=(x0-X)/W*w, sx1=(x1-X)/W*w;
+  if(Y>0) g.drawImage(sm, sx0,0,Math.max(0.01,sx1-sx0),1, x0-1,-1, x1-x0+2,Y+2);         /* ceiling */
+  if(B<vh) g.drawImage(sm, sx0,h-1,Math.max(0.01,sx1-sx0),1, x0-1,B-1, x1-x0+2,vh-B+2);  /* floor */
+  var cn=function(sx,sy,dx,dy,dw,dh){ if(dw>0&&dh>0) g.drawImage(sm, sx,sy,1,1, dx-1,dy-1,dw+2,dh+2); };
+  cn(0,0, 0,0, X,Y); cn(w-1,0, R,0, vw-R,Y); cn(0,h-1, 0,B, X,vh-B); cn(w-1,h-1, R,B, vw-R,vh-B);
+  g.restore();
+}
+function cover(g, smallCnv){
+  if(!smallCnv) return;
+  var s=Math.max(vw/smallCnv.width, vh/smallCnv.height)*1.15;
+  g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+  g.drawImage(smallCnv,(vw-smallCnv.width*s)/2,(vh-smallCnv.height*s)/2,smallCnv.width*s,smallCnv.height*s);
+}
+function updProduct(){
+  var s=S[orient]; if(!s||!s.U) return;
+  var key=prod+color+'|'+pv.toFixed(4);
+  if(s.keyA!==key){
+    renderProduct(s.prodA,color,pv); s.keyA=key;
+    /* the blurred backdrop around the close-up follows the live room (dark when the blackout is down) */
+    var sm=s.prodSmall, sg=sm.getContext('2d'); sg.imageSmoothingEnabled=true; sg.imageSmoothingQuality='high'; sg.drawImage(s.prodA,0,0,sm.width,sm.height);
+  }
+  if(colorFade){ var k2=prod+colorFade.from+'|'+pv.toFixed(4); if(s.keyB!==k2){ renderProduct(s.prodB,colorFade.from,pv); s.keyB=k2; } }
+}
+function drawProd(g, m, alpha, feather){
+  var s=S[orient], P=PROD[orient];
+  var src=s.prodA;
+  if(colorFade){
+    var fc=s.fe.getContext('2d'); fc.globalCompositeOperation='source-over'; fc.globalAlpha=1;
+    fc.drawImage(s.prodB,0,0); fc.globalAlpha=colorFade.k; fc.drawImage(s.prodA,0,0); fc.globalAlpha=1; src=s.fe;
+  }
+  g.save(); g.globalAlpha=alpha;
+  if(feather>0){
+    var tc=s.tmp.getContext('2d'); tc.globalCompositeOperation='source-over'; tc.clearRect(0,0,P.W,P.H); tc.drawImage(src,0,0);
+    tc.globalCompositeOperation='destination-in'; tc.drawImage(s.mask,0,0);
+    g.globalAlpha=alpha*feather; g.drawImage(s.tmp, m.ox, m.oy, P.W*m.sp, P.H*m.sp);
+    s.keyA=s.keyA; /* tmp reused: product cache untouched */
+    g.globalAlpha=alpha*(1-feather);
+  }
+  g.drawImage(src, m.ox, m.oy, P.W*m.sp, P.H*m.sp);
+  g.restore();
+}
+function drawRoom(g, c){
+  var s=S[orient], R=ROOM[orient]; if(!s||!s.room) return;
+  cover(g, s.roomSmall);
+  g.drawImage(s.room, c.tx, c.ty, R.W*c.s, R.H*c.s);
+}
+var chainBox=null;
+function render(){
+  if(!orient||!S[orient]||!S[orient].room) return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  if(view==='room' || !S[orient].prodA){ drawRoom(ctx, roomCam()); return; }   /* orientation just changed: close-up still loading */
+  updProduct();
+  if(view==='zoom'){
+    var A=roomCam(), B=prodCam(), u=ease(zoomU), c=camLerp(A,B,u);
+    fxc.setTransform(dpr,0,0,dpr,0,0); fxc.imageSmoothingEnabled=true;
+    drawRoom(fxc, c);
+    var a=smooth(0.30,0.85,zoomU), m=camToMap(c), Pz=PROD[orient];
+    var gap=m.ox>1 || m.oy>1 || m.ox+Pz.W*m.sp<vw-1 || m.oy+Pz.H*m.sp<vh-1;
+    fxc.save(); fxc.globalAlpha=smooth(0.55,1,zoomU); edgeFill(fxc, m); fxc.restore();   /* ends on the same blurred backdrop as the product view */
+    drawProd(fxc, m, a, gap?1:1-smooth(0.82,1,zoomU));
+    drawChain(fxc, m, a);
+    /* radial motion blur: average of slightly bigger copies around the zoom point */
+    var amt=0.06*Math.sin(Math.PI*zoomU), n=amt>0.004?7:1;
+    var Cx=clamp(c.fx,0,vw), Cy=clamp(c.fy,0,vh);
+    ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
+    for(var i=0;i<n;i++){
+      var z=1+amt*i/Math.max(1,n-1);
+      ctx.globalAlpha=1/(i+1);
+      ctx.setTransform(z,0,0,z,dpr*Cx*(1-z),dpr*Cy*(1-z));
+      ctx.drawImage(fx,0,0);
+    }
+    ctx.globalAlpha=1; ctx.setTransform(dpr,0,0,dpr,0,0);
+    return;
+  }
+  /* product / fabric */
+  var s=S[orient], mm=withFab(prodMap());
+  edgeFill(ctx, mm);
+  var P=PROD[orient], gapX=mm.ox>1 || mm.oy>1 || mm.ox+P.W*mm.sp<vw-1 || mm.oy+P.H*mm.sp<vh-1;
+  drawProd(ctx, mm, 1, gapX?1:0);                       /* soft edges when the photo is narrower than the screen */
+  chainBox=drawChain(ctx, mm, 1);
+  if(PRODS[prod].zebra){ var dn=zbDay(zbShift(pv)), low=pv<zbDayP()*1.6;
+    $('srDay').classList.toggle('on', low && dn>0.6); $('srNight').classList.toggle('on', low && dn<0.15); }
+  placeChainUI();
+  placeFabTip(mm);
+}
+
+/* chain hit area, red handle and the big "Tirez la chaînette" pill follow the drawn chain */
+var lastUI='';
+function placeChainUI(){
+  if(!chainBox) return;
+  var cb=chainBox, hx=cb.x, hy=cb.bot-34+handleDy;
+  var key=[cb.x|0,cb.top|0,cb.bot|0,hy|0,lang].join(',');
+  if(key===lastUI) return; lastUI=key;
+  var hit=$('srChain'); hit.style.left=(cb.x-34)+'px'; hit.style.top=(cb.top)+'px'; hit.style.width='68px'; hit.style.height=(cb.bot-cb.top+46)+'px';
+  var h=$('srHandle'); h.style.left=hx+'px'; h.style.top=hy+'px';
+  var pull=$('srPull'), pw=pull.offsetWidth||190, A=freeArea();
+  var right = hx+34+pw < A.x+A.w-8;
+  pull.style.left=(right? hx+34 : hx-34-pw)+'px'; pull.style.top=hy+'px';
+}
+
+/* badge in the middle of the visible fabric; hidden when the blind is almost fully up */
+var lastTip='';
+function placeFabTip(m){
+  var P=PROD[orient], tip=$('srFabTip'), L=P.fab[3]-P.fab[1], vis=(1-pv)*L*m.sp;
+  var x=m.ox+(P.fab[0]+P.fab[2])/2*m.sp, y=m.oy+(P.fab[1]+(1-pv)*L*0.36)*m.sp;
+  var hw=(tip.offsetWidth||260)/2; x=clamp(x, hw+10, vw-hw-10);
+  var key=(x|0)+','+(y|0)+','+(vis>120);
+  if(key===lastTip) return; lastTip=key;
+  tip.style.left=x+'px'; tip.style.top=y+'px'; tip.classList.toggle('vis', vis>120);
+}
+
+/* ---------- main loop ---------- */
+var lastT=performance.now();
+function frame(now){
+  var dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
+  var anim=false;
+  if(demo){
+    var e=(now-demo.t0)/1000, D=demo.d;
+    var zh=PRODS[prod].zebra? zbDayP() : 0;               /* jour et nuit: day -> night -> day */
+    if(e>=D){ demo=null; p=pv=zh; handleDy=0; }
+    else { var k=e/D, v=k<.5? ease(k*2) : ease((1-k)*2); p=pv= zh? zh*(1-v) : 0.5*v; handleDy=46*Math.sin(Math.PI*k); }
+    anim=true; lastUI='';
+  }
+  if(holdDir){ var hv=PRODS[prod].zebra? 0.03+0.37*smooth(0.5,2.2,(now-holdT0)/1000) : 0.5; p=clamp(p+holdDir*hv*dt,0,1); anim=true; }
+  var d=p-pv;
+  if(Math.abs(d)>0.0004){ pv+=d*Math.min(1,dt*14); anim=true; $('srChain').setAttribute('aria-valuenow',Math.round(pv*100)); }
+  else if(d!==0){ pv=p; anim=true; }
+  if(!dragging && !demo && handleDy!==0){ handleDy*=Math.max(0,1-dt*10); if(Math.abs(handleDy)<0.5) handleDy=0; anim=true; lastUI=''; }
+  if(zoomAnim){
+    var zk=clamp((now-zoomAnim.t0)/zoomAnim.d,0,1);
+    zoomU=zoomAnim.from+(zoomAnim.to-zoomAnim.from)*zk; anim=true;
+    if(zk>=1){ var cb=zoomAnim.cb; zoomAnim=null; cb&&cb(); }
+  }
+  if(fabAnim){
+    var fk=clamp((now-fabAnim.t0)/fabAnim.d,0,1);
+    fabZ=fabAnim.from+(fabAnim.to-fabAnim.from)*ease(fk); anim=true; lastUI='';
+    if(fk>=1){ var fcb=fabAnim.cb; fabAnim=null; fcb&&fcb(); }
+  }
+  if(colorFade){ colorFade.k=clamp((now-colorFade.t0)/320,0,1); anim=true; if(colorFade.k>=1){ colorFade=null; } }
+  if(anim||needDraw){ needDraw=false; render(); }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- layout ---------- */
+function layout(){
+  vw=window.innerWidth; vh=window.innerHeight; dpr=Math.min(2,window.devicePixelRatio||1);
+  cv.width=Math.round(vw*dpr); cv.height=Math.round(vh*dpr); fx.width=cv.width; fx.height=cv.height;
+  var o = vw/vh < 1 ? 'p':'l';
+  if(o!==orient){
+    orient=o; root.classList.toggle('o-p',o==='p'); root.classList.toggle('o-l',o==='l');
+    loadRoom(o).then(function(){ needDraw=true; });
+    if(view!=='room') loadProd(o).then(function(){ needDraw=true; });
+    else loadProd(o).catch(function(){});           /* warm the cache so the zoom starts at once */
+  }
+  buildHots(); lastUI=''; needDraw=true;
+}
+function buildHots(){
+  if(!orient) return;
+  var R=ROOM[orient], c=roomCam();
+  hots.innerHTML='';
+  var list=HOTS[orient];
+  list.forEach(function(h,i){
+    var b=document.createElement('button'); b.className='sr-hot'+(h.on?'':' soon')+(i===0?' first':'')+(i===list.length-1?' last':'');
+    b.style.cssText='left:'+(c.tx+h.x/100*R.W*c.s)+'px;top:'+(c.ty+h.y/100*R.H*c.s)+'px;width:'+(h.w/100*R.W*c.s)+'px;height:'+(h.h/100*R.H*c.s)+'px';
+    b.setAttribute('aria-label',t(h.id));
+    b.innerHTML='<span class="sr-dot"></span><span class="sr-chip">'+t(h.id)+(h.on?'':'<small>'+t('soon')+'</small>')+'</span>';
+    b.onclick=function(){ h.on ? openProduct(b,h.id) : toast(t('toast_soon')); };
+    hots.appendChild(b);
+  });
+}
+var toastTimer;
+function toast(s){ var el=$('srToast'); el.textContent=s; el.classList.add('on'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){el.classList.remove('on')},2600); }
+function wait(ms){ return new Promise(function(r){setTimeout(r,ms)}); }
+function waitUntil(fn,max){ return new Promise(function(r){ var t0=performance.now(); (function k(){ if(fn()||performance.now()-t0>max) return r(); requestAnimationFrame(k); })(); }); }
+function zoomTo(to, ms){ return new Promise(function(res){ zoomAnim={from:zoomU,to:to,t0:performance.now(),d:ms,cb:res}; }); }
+
+/* ---------- room -> product ---------- */
+function defColor(){ return (SHOWN.filter(function(c){ return c.id===PRODS[prod].def; })[0]||SHOWN[0]).id; }
+function setProd(id){
+  if(id!==prod){
+    lastCol[prod]=color; prod=id; colorFade=null; wantColor=null;
+    for(var o in S){ S[o].keyA=''; S[o].keyB=''; }
+  }
+  setStock();
+  if(lastCol[prod] && SHOWN.some(function(c){ return c.id===lastCol[prod]; })) color=lastCol[prod];
+  else if(!SHOWN.some(function(c){ return c.id===color; }) || !lastCol[prod]) color=defColor();
+  PROD.l.PR=PRODS[prod].PR.l; PROD.p.PR=PRODS[prod].PR.p;
+  root.classList.toggle('p-jn', !!PRODS[prod].zebra);
+  moreOpen=false; $('srPanel').classList.remove('open','quote');
+  applyLang();
+}
+async function openProduct(btn,id){
+  if(busy) return; busy=true;
+  setProd(id||'screen');
+  btn.classList.add('busy'); root.classList.add('loading');
+  try{ await loadProd(orient); }catch(e){ root.classList.remove('loading'); btn.classList.remove('busy'); busy=false; toast('…'); return; }
+  root.classList.remove('loading'); btn.classList.remove('busy');
+  p=pv=PRODS[prod].zebra? zbDayP() : 0; handleDy=0; zoomU=0;   /* jour et nuit: arrives in day position */
+  setView('zoom');
+  await zoomTo(1, 1150);
+  setView('product'); root.classList.add('settled'); lastUI=''; render();
+  busy=false;
+  clearTimeout(tipTimer); tipTimer=setTimeout(function(){ if(view==='product') root.classList.add('tipon'); lastTip=''; needDraw=true; }, 2700);
+  await wait(450);
+  if(view==='product' && !interacted) startDemo();
+}
+function startDemo(){ demo={t0:performance.now(), d:PRODS[prod].zebra? 2.6 : 2.0}; }
+function stopDemo(){ if(demo){ demo=null; } }
+
+/* ---------- product -> room ---------- */
+async function closeProduct(){
+  if(busy) return; busy=true;
+  stopDemo(); holdDir=0; clearTimeout(tipTimer); root.classList.remove('tipon');
+  if(view==='fabric'){ closeFabric(); await wait(560); }
+  var p0=PRODS[prod].zebra? zbDayP() : 0;
+  p=p0; await waitUntil(function(){ return Math.abs(pv-p0)<0.004; }, 1400); pv=p=p0;
+  root.classList.remove('settled');
+  await wait(120);
+  setView('zoom'); zoomU=1;
+  await zoomTo(0, 950);
+  setView('room'); busy=false;
+}
+
+/* ---------- chain drag, wheel, keyboard ---------- */
+(function(){
+  var ch=$('srChain'), y0=0, p0=0;
+  ch.addEventListener('pointerdown', function(e){ stopDemo(); dragging=true; y0=e.clientY; p0=p; ch.setPointerCapture(e.pointerId); used(); e.preventDefault(); });
+  ch.addEventListener('pointermove', function(e){
+    if(!dragging) return;
+    var dy=e.clientY-y0, cb=chainBox, h=cb? (cb.bot-cb.top)*0.9 : 300;
+    p=clamp(p0+dy/h,0,1); handleDy=clamp(dy,-70,70); lastUI='';
+  });
+  var up=function(){ dragging=false; };
+  ch.addEventListener('pointerup',up); ch.addEventListener('pointercancel',up);
+  ch.addEventListener('keydown', function(e){
+    if(e.key==='ArrowDown'){ p=clamp(p+.1,0,1); used(); e.preventDefault(); }
+    if(e.key==='ArrowUp'){ p=clamp(p-.1,0,1); used(); e.preventDefault(); }
+  });
+  cv.addEventListener('wheel', function(e){ if(view!=='product') return; stopDemo(); p=clamp(p+e.deltaY/900,0,1); used(); e.preventDefault(); }, {passive:false});
+})();
+function used(){ if(!interacted){ interacted=true; $('srPull').classList.add('used'); $('srHandle').classList.add('used'); lastUI=''; } }
+
+/* Ouvrir / Fermer work like the chain: hold = the blind keeps moving, a short tap = a small step */
+function holdBtn(el, dir){
+  var t0=0, on=false;
+  var start=function(){ if(on) return; on=true; stopDemo(); used(); t0=holdT0=performance.now(); holdDir=dir; el.classList.add('down'); };
+  var stop=function(){ if(!on) return; on=false; el.classList.remove('down'); if(holdDir===dir) holdDir=0; if(performance.now()-t0<230) p=clamp(p+dir*(PRODS[prod].zebra? zbDayP() : 0.15),0,1); };   /* jour et nuit: a tap = day <-> night */
+  el.addEventListener('pointerdown', function(e){ e.preventDefault(); try{el.setPointerCapture(e.pointerId)}catch(_){} start(); });
+  el.addEventListener('pointerup', stop); el.addEventListener('pointercancel', stop); el.addEventListener('lostpointercapture', stop);
+  el.addEventListener('keydown', function(e){ if((e.key===' '||e.key==='Enter') && !e.repeat){ e.preventDefault(); start(); } });
+  el.addEventListener('keyup', function(e){ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); stop(); } });
+  el.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+}
+holdBtn($('srUp'), 1);
+holdBtn($('srDown'), -1);
+$('srDay').onclick=function(){ stopDemo(); used(); p=zbDayP(); };
+$('srNight').onclick=function(){ stopDemo(); used(); p=0; };
+
+/* ---------- colours ---------- */
+function updColor(){
+  var sw=$('srSw'); sw.innerHTML='';
+  SHOWN.forEach(function(c){
+    var b=document.createElement('button'); b.style.background=(PRODS[prod].hex&&PRODS[prod].hex[c.id])||c.hex; b.className=c.id===color?'on':''; b.setAttribute('aria-label',t(c.id)); b.title=t(c.id);
+    b.dataset.id=c.id; b.onclick=function(){ setColor(c.id); }; sw.appendChild(b);
+  });
+  updWa();
+  $('srMacroImg').src=BASE+PRODS[prod].mac+color+'.jpg';
+  /* "Essayer ce store sur ma fenêtre" opens the try-on page with this model and this colour already chosen */
+  var cc=COLORS.filter(function(x){ return x.id===color; })[0], a=document.querySelector('.sr-cta2');
+  if(a) a.href='https://www.mstorecasa.com/essayer-votre-store/?store='+prod+(cc?'&couleur='+encodeURIComponent(cc.stock):'');
+}
+/* ---------- quote form -> WhatsApp recap (city list = mstorecasa.com/contact-2) ---------- */
+var CITIES=['Casablanca','Agadir','Agouim','Ahfir','Ain Erreggada','Ait Iaaza','Ait Ourir','Aït Sedrate Sahl El Gharbia','Ajdir','Aklim','Aknoul','Al Aroui','Al Hoceima','Amerzgane','Aoulouz','Beni Drar','Berkane','Berrechid','Bni Bouayach','Boukidan','Boumalne Dades','Chwiter','El Aioun Charkia','El Aioun Sidi Mellouk','El Jadida','El Menzel','Fès','Guercif','Hassi Berkane','Idelsane','Iflilte',"Ighrem N'Ougdal",'Imzouren','Kassita','Kelaat Mgouna','Kénitra','Khemisset','Lbour','Marrakech','Meknès','Mohammedia','Nador','Ouarzazate','Oued Amlil','Oujda','Oulad Aissa','Oulad Berhil','Oulad Teima (Houara)','Rabat','Ribate El Kheir (Ahermoumou)','Saka','Salé','Sefrou','Settat','Skoura','Souk El Khemis Dades','Taddart (Tichka)','Tanger','Taourirt','Taroudannt','Taza','Tazentoute (Ait Zineb)','Tazilda','Témara','Tiflet','Timedline','Tiourjdal','Tizi Ouasli','Touama','Toufliht','Zaio','Zerkten','Autre ville'];
+var nWin=1;
+function buildCities(){
+  var sel=$('srCity'), v=sel.value;
+  sel.innerHTML='<option value="">'+t('q_city0')+'</option>'+CITIES.map(function(c){ return '<option value="'+c.replace(/"/g,'&quot;')+'">'+c+'</option>'; }).join('');
+  sel.value=v;
+}
+function updWa(){
+  var city=$('srCity').value;
+  $('srWin').textContent=nWin;
+  $('srWa').href='https://wa.me/'+WA_NUMBER+'?text='+encodeURIComponent(t('wa').replace('{c}',t(color)).replace('{n}',nWin).replace('{v}',city||'-'));
+}
+$('srQuoteBtn').onclick=function(){
+  $('srPanel').classList.add('quote'); lastUI=''; needDraw=true;
+  setTimeout(function(){ $('srQ').scrollIntoView({behavior:'smooth',block:'nearest'}); }, 60);
+};
+$('srWinMinus').onclick=function(){ nWin=Math.max(1,nWin-1); updWa(); };
+$('srWinPlus').onclick=function(){ nWin=Math.min(50,nWin+1); updWa(); };
+$('srCity').onchange=function(){ this.classList.remove('err'); $('srCityErr').classList.remove('on'); updWa(); };
+$('srWa').addEventListener('click', function(e){
+  if(!$('srCity').value){ e.preventDefault(); $('srCity').classList.add('err'); $('srCityErr').classList.add('on'); $('srCity').focus(); }
+});
+var wantColor=null;
+function setColor(id){
+  if(id===color) return;
+  var s=S[orient];
+  if(s && s.D && !(s.D[prod+':'+id] && s.roll[id])){                  /* first time this colour is shown: load its photos, then fade */
+    wantColor=id;
+    var bt=document.querySelector('#srSw button[data-id="'+id+'"]'); if(bt) bt.classList.add('wait');
+    loadColor(orient,id).then(function(){ if(wantColor===id){ wantColor=null; setColor(id); } else updColor(); })
+      .catch(function(){ wantColor=null; updColor(); });
+    return;
+  }
+  wantColor=null;
+  colorFade={from:color, t0:performance.now(), k:0};
+  if(s) s.keyB='';
+  color=id; updColor(); needDraw=true;
+}
+/* stock colours, read on every visit (the fallback list is shown until the script answers) */
+(function(){
+  var done=false, tm=setTimeout(function(){ done=true; }, 8000);
+  fetch(STOCK_URL).then(function(r){ return r.json(); }).then(function(j){
+    clearTimeout(tm); if(done || !j || !j.ok) return;
+    ['screen','blackout','jn'].forEach(function(k){ if(Array.isArray(j[k]) && j[k].length) STOCKS[k]=j[k]; });
+    setStock();
+    if(!SHOWN.some(function(c){ return c.id===color; })){
+      var nx=defColor();
+      if(S[orient] && S[orient].D) setColor(nx); else color=nx;
+    }
+    updColor();
+  }).catch(function(){ clearTimeout(tm); });
+})();
+
+/* ---------- fabric close-up ---------- */
+function fabricAt(x,y){
+  if(view!=='product'||!S[orient]||!S[orient].U) return false;
+  var P=PROD[orient], m=prodMap(), X=(x-m.ox)/m.sp, Y=(y-m.oy)/m.sp, yb=P.fab[1]+(1-pv)*(P.fab[3]-P.fab[1]);
+  return X>P.fab[0] && X<P.fab[2] && Y>P.fab[1]+6 && Y<yb-4;
+}
+function openFabric(x,y){
+  if(view!=='product'||busy) return;
+  stopDemo(); holdDir=0;
+  if(x==null){ var P=PROD[orient], m=prodMap(); x=m.ox+(P.fab[0]+P.fab[2])/2*m.sp; y=m.oy+(P.fab[1]+(P.fab[3]-P.fab[1])*0.35)*m.sp; }
+  fabPt={x:x,y:y}; root.classList.remove('settled');
+  fabAnim={from:1,to:3.2,t0:performance.now(),d:550,cb:null};
+  setTimeout(function(){ setView('fabric'); }, 280);
+}
+function closeFabric(){
+  setView('product');
+  fabAnim={from:fabZ,to:1,t0:performance.now(),d:520,cb:function(){ fabZ=1; root.classList.add('settled'); lastUI=''; }};
+}
+cv.addEventListener('click', function(e){ if(fabricAt(e.clientX,e.clientY)) openFabric(e.clientX,e.clientY); });
+cv.addEventListener('pointermove', function(e){ cv.style.cursor = fabricAt(e.clientX,e.clientY) ? 'zoom-in' : ''; });
+$('srFabHint').onclick=function(){ openFabric(null,null); };
+$('srFabTip').onclick=function(e){ openFabric(e.clientX,e.clientY); };
+$('srFabBack').onclick=closeFabric;
+$('srMacro').onclick=closeFabric;
+
+/* ---------- misc ---------- */
+function applyLang(){
+  root.setAttribute('dir', lang==='ar'?'rtl':'ltr'); document.documentElement.lang=lang;
+  root.querySelectorAll('[data-t]').forEach(function(el){ var v=t(el.getAttribute('data-t')); if(typeof v==='string') el.textContent=v; });
+  $('srLang').textContent = lang==='ar'?'FR':'عربي';
+  $('srFeat').innerHTML = t('feat').map(function(s){return '<li>'+s+'</li>';}).join('');
+  $('srSpecs').innerHTML = t('specs').map(function(r){return '<dt>'+r[0]+'</dt><dd>'+r[1]+'</dd>';}).join('');
+  $('srMore').textContent = t(moreOpen?'less':'more');
+  buildCities(); buildHots(); updColor(); lastUI=''; lastTip=''; needDraw=true;
+}
+$('srClose').onclick=closeProduct;
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ if(view==='fabric') closeFabric(); else if(view==='product') closeProduct(); } });
+$('srLang').onclick=function(){ lang = lang==='fr'?'ar':'fr'; try{localStorage.setItem('mstsr-lang',lang)}catch(e){} applyLang(); };
+$('srMore').onclick=function(){ moreOpen=!moreOpen; $('srPanel').classList.toggle('open',moreOpen); $('srMore').textContent=t(moreOpen?'less':'more'); lastUI=''; needDraw=true; };
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', function(){ setTimeout(layout, 250); });
+/* the panel changes height (details, quote form, language): re-frame the blind so it stays above / beside it */
+if(window.ResizeObserver) new ResizeObserver(function(){ lastUI=''; needDraw=true; }).observe($('srPanel'));
+layout(); applyLang();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
