@@ -45,9 +45,17 @@ html,body{margin:0;height:100%;background:#DBD5CE}
 .sr-btn{border:0;cursor:pointer;font:inherit;font-weight:700;border-radius:999px;background:rgba(255,255,255,.92);color:var(--ink);padding:8px 14px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
 .sr-close{width:42px;height:42px;padding:0;font-size:20px;line-height:42px;display:none}
 #mst-sr.v-product .sr-close,#mst-sr.v-fabric .sr-close{display:block}
-.sr-hint{position:absolute;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;background:rgba(29,29,31,.82);color:#fff;
-  padding:9px 16px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap;transition:opacity .3s}
-#mst-sr:not(.v-room) .sr-hint{opacity:0;pointer-events:none}
+/* big catchy call-out: red pill, pointing hand, soft bounce + glow */
+.sr-hint{position:absolute;left:50%;bottom:max(26px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:12px;
+  background:var(--red);color:#fff;padding:12px 24px 12px 12px;border-radius:999px;font-size:clamp(16px,1.5vw,21px);font-weight:800;letter-spacing:.01em;white-space:nowrap;
+  box-shadow:0 12px 34px rgba(227,6,19,.45),0 0 0 0 rgba(227,6,19,.55);animation:srHintBob 1.8s ease-in-out infinite,srHintGlow 1.8s ease-out infinite;transition:opacity .3s;pointer-events:none;max-width:calc(100vw - 24px)}
+.sr-hint i{flex:none;width:36px;height:36px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:22px;line-height:1;animation:srHintTap 1.8s ease-in-out infinite}
+.sr-hint span{overflow:hidden;text-overflow:ellipsis}
+@keyframes srHintBob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
+@keyframes srHintGlow{0%{box-shadow:0 12px 34px rgba(227,6,19,.45),0 0 0 0 rgba(227,6,19,.55)}100%{box-shadow:0 12px 34px rgba(227,6,19,.45),0 0 0 18px rgba(227,6,19,0)}}
+@keyframes srHintTap{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(3px) scale(.9)}}
+@media (max-width:600px){.sr-hint{font-size:15px;padding:10px 18px 10px 10px;gap:10px}.sr-hint i{width:32px;height:32px;font-size:19px}}
+#mst-sr:not(.v-room) .sr-hint{opacity:0;animation:none}
 .sr-toast{position:absolute;left:50%;top:70px;transform:translate(-50%,-10px);z-index:40;background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;transition:.3s;pointer-events:none;max-width:90vw;text-align:center}
 .sr-toast.on{opacity:1;transform:translate(-50%,0)}
 .sr-loader{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;border:4px solid rgba(255,255,255,.5);border-top-color:var(--red);animation:srSpin .8s linear infinite;z-index:25;display:none}
@@ -149,9 +157,10 @@ html,body{margin:0;height:100%;background:#DBD5CE}
 .sr-qerr.on{display:block}
 .sr-qsafe{text-align:center;font-size:12px;color:var(--mute);margin:8px 0 0}
 .sr-more{display:none;border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--red);padding:0;margin:0 0 10px;cursor:pointer}
-.o-p .sr-desc,.o-p .sr-feat,.o-p .sr-fabhint{display:none}
-.o-p .sr-panel.open .sr-desc,.o-p .sr-panel.open .sr-feat,.o-p .sr-panel.open .sr-fabhint{display:block}
-.o-p .sr-more{display:block}
+/* details folded on every screen so the WhatsApp button is always in view; "Voir les détails" unfolds them */
+.sr-desc,.sr-feat,.sr-fabhint{display:none}
+.sr-panel.open .sr-desc,.sr-panel.open .sr-feat,.sr-panel.open .sr-fabhint{display:block}
+.sr-more{display:block}
 .o-p .sr-panel h1{font-size:22px;display:inline}
 .o-p .sr-kick{display:none}
 .o-p .sr-tag{display:inline;margin-inline-start:8px;font-size:14px;color:var(--mute)}
@@ -223,7 +232,7 @@ html,body{margin:0;height:100%;background:#DBD5CE}
     <button class="sr-btn" id="srLang">عربي</button>
   </div>
 
-  <div class="sr-hint" data-t="hint_room"></div>
+  <div class="sr-hint" aria-live="polite"><i>👆</i><span data-t="hint_room"></span></div>
   <div class="sr-loader"></div>
   <div class="sr-toast" id="srToast"></div>
 
@@ -925,6 +934,14 @@ function buildHots(){
     b.onclick=function(){ h.on ? openProduct(b,h.id) : toast(t('toast_soon')); };
     hots.appendChild(b);
   });
+  /* phones held upright: the hint sits just under the blinds, not at the bottom of the screen */
+  var hint=root.querySelector('.sr-hint');
+  if(orient==='p'){
+    /* halfway between the bottom of the blinds and the bottom of the screen: in the middle of the floor */
+    var mb=0; list.forEach(function(h){ mb=Math.max(mb, c.ty+(h.y+h.h)/100*R.H*c.s); });
+    var H=root.clientHeight||window.innerHeight;
+    hint.style.top=Math.round(mb+(H-mb)*0.5)+'px'; hint.style.bottom='auto';
+  } else { hint.style.top=''; hint.style.bottom=''; }
 }
 var toastTimer;
 function toast(s){ var el=$('srToast'); el.textContent=s; el.classList.add('on'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){el.classList.remove('on')},2600); }
